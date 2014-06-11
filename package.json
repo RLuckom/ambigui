@@ -1,0 +1,23 @@
+{
+  "name": "rluckomui",
+  "version": "0.0.0",
+  "description": "Sometimes I want exactly the ui element I'm thinking of, not just something close.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "raphaelluckom@gmail.com",
+  "license": "MIT",
+  "devDependencies": {
+    "grunt": "^0.4.4",
+    "grunt-contrib-coffee": "^0.10.1",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-contrib-qunit": "^0.4.0",
+    "grunt-contrib-uglify": "^0.4.0",
+    "grunt-contrib-jshint": "^0.10.0",
+    "grunt-contrib-concat": "^0.4.0",
+    "grunt-codo": "^0.1.0",
+    "grunt-contrib-compass": "^0.8.0",
+    "grunt-contrib-handlebars": "^0.8.0"
+  }
+}
