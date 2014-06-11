@@ -2,6 +2,10 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
+        <!-- syntax highlighting CSS -->
+        <link rel="stylesheet" href="./css/syntax.css">
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="./css/main.css">
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
         <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
@@ -10,8 +14,21 @@
         <title>RLuckomUI</title>
     </head>
     <body>
+        <div class="site">
+          <div class="header">
+            <h1 class="title"><a href="/">RLuckomUI</a></h1>
+            <a href="https://github.com/RLuckom/rluckomui/zipball/master" id="download-zip" class="extra"><span>Download .zip</span></a>
+            <a href="https://github.com/RLuckom/rluckomui/tarball/master" id="download-tar-gz" class="extra"><span>Download .tar.gz</span></a>
+            <a href="https://github.com/RLuckom/rluckomui" id="view-on-github" class="extra"><span>View on GitHub</span></a>
+          </div>
+
+          <a name="DOGWOOD"></a>
+          <h2>DOGWOOD</h2>
+<p class="meta">10 June 2014</p>
         <h1>RluckomUI</h1>
-        <p>Sometimes I want exactly the thing I'm thinking of, not just something close.</p>
+        <p>DOGWOOD is a beautiful SVG-based tree UI. In this demo, click on the 
+        blue circles to add child nodes. Click on the text of a node to toggle its
+        descendants' visibility.</p>
         <script>
             window.onload = function() {
                     DOGWOOD.drawSVG();
