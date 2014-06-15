@@ -21,80 +21,68 @@ class SVGNodeView extends Backbone.View
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
+  
+  # creates an animation element from attributes in spec,
+  # appends it to element parent, and if given, sets callback to fire when the
+  # animation finishes
+  #
+  # @param {Object} spec dur, repeatCount, fill, and begin have auto values
+  # @param {SVGElement} parentElement element to be animated
+  # @param {Function} callback if given, will be executed after animation
+  # @param {String} animType defaults to 'animate'.
+  animateElement: (spec, parentElement, callback=null, animType="animate") =>
+    spec.dur ?= @animateDuration
+    spec.repeatCount ?= 1
+    spec.fill ?= "freeze"
+    spec.begin ?= "indefinite"
+    animation = @svgElement animType, spec
+    if callback?
+      animation.addEventListener "endEvent", callback
+    parentElement.appendChild animation
+    animation.beginElement()
 
-  # Sets up the view
+  # Sets up the view. In the params below, the name 'model' is used to describe
+  # the parent if provided (options.parent) or if not, the options model itself.
+  # So 'model.indent' means options.parent.indent or options.indent if
+  # options.parent is null.
+  #
+  # The frame of each node has its origin at the point where the nodes line
+  # intersects with its parent's line. Positive x is to the left, positive y is
+  # down. Note that the y-offset of the text from the origin is negative if the
+  # text is above the line.
+  #
+  # @param {Object} options
+  # @param {SVGNodeView} options.parent If provided, used to populate members.
+  # @param {String} options.text the text to display on the node.
+  # @param {Number} model.indent x-distance to translate per generation.
+  # @param {Number} model.textDX x-offset of the text from 0 in the node-frame.
+  # @param {Number} model.textDY y-offset of the text from 0 in the node-frame.
+  # @param {Number} model.circleRadius radius of end circle.
+  # @param {Number} model.circleDY y-offset of circle from node-frame origin.
+  # @param {Number} model.nodeHeight dy by which to translate for each node.
+  # @param {Number} model.animateDuration time to allow for animations.
+  # @param {Bool} model.isHidden whether to display the node
   constructor: (options) ->
-    @children = [] # visible children go in this array
-    @hidden = [] # hidden children go in this array
-    @referenceChildren = [] # this array holds all children (hidden and
-                            # visible) in the order in which they were added
-    if not options.parent?
-      @x = options.x ? 5
-      @y = options.y ? 40
-      @indent = options.indent ? 40
-      @textDX = options.textDX ? 5
-      @textDY = options.textDY ? -10
-      @circleRadius = options.circleRadius ? 4
-      @circleDY = options.circleDY ? 0
-      @nodeHeight = options.nodeHeight ? 35
-      @flagpoleLength = @circleDY + @circleRadius
-      @isRoot = true
-    else
-      @parent = options.parent
-      @parent.register this
-    @name = options.text ? "Root"
     super options
-
-  # @param {String} name text to display in tree
-  # @return {SVGNodeView} child nodeview woith name name
-  new_child: (name="child") =>
-    transform_spec = {
-      transform: "translate(#{@indent}, 0)"
-    }
-    spacer_el = @svgElement "g", transform_spec
-    child_el = @svgElement "g"
-    spacer_el.appendChild child_el
-    @el.appendChild spacer_el
-    new SVGNodeView({el: child_el, parent: this, text:name})
-    @trigger 'new_child'
-    if @isRoot then @updatePosition()
-
-  # puts child in this.children and populates child's members
-  #
-  # @param {SVGNodeView} child
-  register: (child) =>
-    @children.push child
-    @referenceChildren.push child
-    @updateChildren()
-    @listenTo child, "new_child", @newChild
-
-  # when there's a new descendant, update all children and pass it up
-  # TODO fix dumb name.
-  newChild: =>
-    @trigger "new_child"
-    if @isRoot then @updatePosition()
-
-  # Populates child with correct current values
-  #
-  # @param {SVGNodeView} child
-  # @param {Number} index index of child in this.children
-  updateChild: (child, index) =>
-    child.x = @x + @indent
-    child.y = @y + @nodeHeight * index
-    child.indent = @indent
-    child.textDX = @textDX
-    child.textDY = @textDY
-    child.circleRadius = @circleRadius
-    child.circleDY = @circleDY
-    child.nodeHeight = @nodeHeight
-    child.flagpoleLength = @circleDY + @circleRadius
-
-  # recursively updates the position of all descendent elements
-  moveChildren: =>
-    child.updatePosition() for child in @children
-
-  # Must be called after @parent is set
-  initialize: =>
+    @children = []
+    @scale = '1 1'
+    model = options.parent ? options
+    @name = options.text ? "Root"
+    @indent = model.indent ? 40
+    @textDX = model.textDX ? 5
+    @textDY = model.textDY ? -10
+    @circleRadius = model.circleRadius ? 4
+    @circleDY = model.circleDY ? 0
+    @nodeHeight = model.nodeHeight ? 35
+    @flagpoleLength = @circleDY + @circleRadius
+    @animateDuration = model.animateDuration ? "0.4s"
+    @isHidden = model.isHidden ? false
+    if options.parent?
+      @parent = options.parent
+    else
+      @isRoot = true
+    @x = options.x ? 5
+    @y = options.y ? 40
     @line = @makeLine()
     @circle = @makeCircle()
     @circle.addEventListener "click", @circleClick
@@ -104,6 +92,45 @@ class SVGNodeView extends Backbone.View
     @el.appendChild @circle
     @el.appendChild @text
 
+  # @param {String} name text to display in tree
+  # @return {SVGNodeView} child nodeview with name name
+  newChild: (name="child") =>
+    child.isHidden = false for child in @children
+    transform_spec = transform: "translate(#{@indent}, 0)"
+    spacer_el = @svgElement "g", transform_spec
+    child_el = @svgElement "g"
+    spacer_el.appendChild child_el
+    @el.appendChild spacer_el
+    child_spec = {
+      el: child_el,
+      parent: this,
+      text:name,
+      x: @x + @indent,
+      y: @y + @numDescendants() * @nodeHeight
+    }
+    child = new SVGNodeView child_spec
+    @children.push child
+    @listenTo child, "request_update", @requestUpdate
+    @trigger 'request_update'
+    if @isRoot then @updatePosition()
+
+  # request gets passed up the chain, root calls update.
+  requestUpdate: () =>
+    if not @isRoot
+      @trigger "request_update"
+    else
+      @updatePosition()
+
+  # animates all elements of this node from their current actual location to
+  # their current 'correct' location
+  updatePosition: (callback=null) =>
+    @updateChildren()
+    @moveChildren()
+    @animateLine()
+    @animateText()
+    @animateCircle()
+    @animateVisible()
+
   # updates the position of all children.
   updateChildren: =>
     descendants = 0
@@ -112,66 +139,68 @@ class SVGNodeView extends Backbone.View
       @updateChild child, descendants
       descendants += child.numDescendants()
 
-  # animates all elements of this node from their current actual location to
-  # their current 'correct' location
-  updatePosition: =>
-    @updateChildren()
-    @moveChildren()
-    @animateLine()
-    @animateText()
-    @animateCircle()
+  # Populates child with correct current values
+  #
+  # @param {SVGNodeView} child
+  # @param {Number} index index of child in this.children
+  updateChild: (child, index) =>
+    child.x = @x + @indent
+    child.y = if not child.isHidden then @y + @nodeHeight * index else @y
+
+  # recursively updates the position of all descendent elements
+  #
+  # @param {Function} callback if given will be called on animattion end
+  moveChildren: (callback=null) =>
+    if @children.length == 0 and callback?
+      callback()
+    child.updatePosition(callback) for child in @children
 
   # Returns the current coordinates to use for the polyline.
   # Sets priorLinePoints to the existing coordinates, if any.
   #
-  # @return {string} svg polyline points string
+  # @return {String} svg polyline points string
   getLinePoints: =>
-    @priorLinePoints = @linePoints
     last = @children[@children.length - 1]
     n = if last then last.numDescendants() else 0
     @flagpoleLength = (@numDescendants() - n) * @nodeHeight
-    @linePoints = "#{0} #{@y} #{@indent} #{@y} "
-    # CoffeeScript's support for multiline strings is pretty sweet
-    # but codo doc generation breaks when it doesn't find a close
-    # quote on the same line as opening.
-    @linePoints += "#{@indent} #{@y + @flagpoleLength}"
-    @priorLinePoints ?= @linePoints
-    return @linePoints
+    return "#{0} #{@y} #{@indent} #{@y} #{@indent} #{@y + @flagpoleLength}"
 
   # Counts the descendants of this node
   numDescendants: =>
     n = 0
     for c in @children
-      n += c.numDescendants()
-    n + @children.length
+      if not c.isHidden
+        n += c.numDescendants() + 1
+    return n
 
   # @return {DOM.SVGSVGElement} polyline
   makeLine:  =>
+    @linePoints = @getLinePoints()
     @svgElement "polyline",  {
       fill: "none",
-      points: @getLinePoints(),
+      points: @linePoints,
       'stroke-width': "2px",
       stroke: "blue"
     }
 
   # move the line to the correct position
-  animateLine: =>
-    animationSpec = {
-      attributeName: 'points',
-      to: @getLinePoints(),
-      from: @priorLinePoints,
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
-    }
-    animation = @svgElement "animate", animationSpec
-    @line.appendChild animation
-    animation.beginElement()
+  #
+  # @param {Function} callback if given will be called on animattion end
+  animateLine: (callback=null)=>
+    newPoints = @getLinePoints()
+    @animateElement(
+      {attributeName: 'points', from: @linePoints, to: newPoints},
+      @line,
+      callback
+    )
+    @linePoints = newPoints
 
   # creates the textelement in the SVG displaying the node name.
   #
-  # @return {DOM.SVGSVGElement} circle
+  # Note that assigning to innerHTML is not supported in SVG even on relatively
+  # recent browsers. It is safest to add text by using document.createTextNode.
+  #
+  # @return {DOM.SVGSVGElement} text node
   makeText: =>
     @textX = @textDX
     @textY = @y + @textDY
@@ -180,26 +209,18 @@ class SVGNodeView extends Backbone.View
       x: @textDX,
       y: @y + @textDY
     }
-
     t.appendChild document.createTextNode @name
     return t
 
   # move the text to the correct position
-  animateText: =>
-    animationSpec = {
-      attributeName: 'y',
-      to: @y + @textDY,
-      from: @textY,
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
-    }
-    @textY = @y + @textDY
-    animation = @svgElement "animate", animationSpec
-    @text.appendChild animation
-    animation.beginElement()
-
+  #
+  # @param {Function} callback if given will be called on animattion end
+  animateText: (callback=null) =>
+    newY = @y + @textDY
+    @animateElement(
+      {attributeName: 'y', to: newY, from: @textY}, @text, callback
+    )
+    @textY = newY
 
   # @return {DOM.SVGSVGElement} circle
   makeCircle: =>
@@ -215,147 +236,82 @@ class SVGNodeView extends Backbone.View
     }
 
   # move the circle to the correct position
-  animateCircle: =>
-    animationSpec = {
-      attributeName: 'cy',
-      to: @y + @circleDY,
-      from: @circleY,
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
-    }
-    @circleY = @y + @circleDY
-    animation = @svgElement "animate", animationSpec
-    @circle.appendChild animation
-    animation.beginElement()
+  #
+  # @param {Function} callback if given will be called on animattion end
+  animateCircle: (callback=null) =>
+    new_cy = @y + @circleDY
+    @animateElement(
+      {attributeName: 'cy', to: new_cy, from: @circleY}, @circle, callback
+    )
+    @circleY = new_cy
 
   # Shows the immediate children of this node
   showChildren: =>
-    tmp = @children.concat @hidden
-    new_children = []
-    for c in @referenceChildren
-      if c in tmp
-        new_children.push c
-    @children = new_children
+    for child in @children
+      child.isHidden = false
     @updateChildren()
-    @hidden = []
-    child.spinIn() for child in @children
-    @trigger "new_child"
+    @trigger "request_update"
     if @isRoot
       @updatePosition()
 
   # Hides all visible descendants of this node.
   hideChildren: =>
-    f = @hideCallback => @trigger "new_child"
+    test = => @visibleChildren().length == 0
+    trigger = => @trigger "request_update"
+    f = @groupActionCallback trigger, test
     if @isRoot
-      f = @hideCallback @updatePosition
-    child.hide(f) for child in @children
+      f = @groupActionCallback @updatePosition, test
+    child.hide(f) for child in @visibleChildren()
 
   # hides the element and all children
   #
   # @param {Function} callback if given, called with this as param on hide end
   hide: (callback) =>
-    if @children.length == 0 then @spinOut => callback this
-    cb = @hideCallback => @retractFlagpole => @spinOut => callback this
-    child.hide(cb) for child in @children
+    if @visibleChildren().length == 0
+      @isHidden = true
+      callback this
+    hideCallback = =>
+      @isHidden = true
+      callback this
+    test = => @visibleChildren().length == 0
+    cb = @groupActionCallback hideCallback, test
+    child.hide(cb) for child in @visibleChildren()
 
-  # Makes a function that listens for each child to check in, and moves them
-  # from the @children array to the @hidden arrray. When all children have
-  # called the function, it calls the provided callback.
+  # Makes a function that listens for each . When all
+  # children have reported back, it calls the provided callback.
   #
   # @param {Function} callback if given will be called on animattion end
-  hideCallback: (callback) =>
-    return (child) =>
-      @hidden.push child
-      indx = @children.indexOf child
-      @children.splice indx, 1
-      if @children.length == 0
+  groupActionCallback: (callback, test) ->
+    return (opts) ->
+      if test(opts) and callback?
         callback()
 
-  # Returns the current coordinates to use for a retracted version of
-  # the polyline.
-  #
-  # @return {string} svg polyline points string
-  getRetractedLinePoints: =>
-    return "#{0} #{@y} #{@indent} #{@y} #{@indent} #{@y}"
+  # @return {Number} of children that are hidden
+  visibleChildren: =>
+    @children.filter (x) -> not x.isHidden
 
-  # Retracts the flagpole below the node
+  # Animates the visibility of a node based on the isHidden member.
+  # no visual effect if the isHidden state hasn't changed.
   #
-  # @param {Function} callback if given will be called on animattion end
-  retractFlagpole: (callback) =>
-    animationSpec = {
-      attributeName: 'points',
-      from: @priorLinePoints,
-      to: @getRetractedLinePoints(),
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
-    }
-    animation = @svgElement "animate", animationSpec
-    @line.appendChild animation
-    if callback?
-      animation.addEventListener "endEvent", callback
-    animation.beginElement()
-
-  # Flips the subnodes to invisible
-  #
-  # @param {Function} callback if given will be called on animattion end
-  spinOut: (callback) =>
-    animationSpec = {
+  # @param {Function} callback if provided, called on animation end.
+  animateVisible: (callback=null) =>
+    newScale = if @isHidden then "0 1" else "1 1"
+    spec = {
       attributeName: 'transform',
-      type: "scale",
-      from: "1 1",
-      to: "0 1",
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
+      type: 'scale',
+      from: @scale,
+      to: newScale
     }
-    animation = @svgElement "animateTransform", animationSpec
-    @el.appendChild animation
-    if callback?
-      animation.addEventListener "endEvent", callback
-    animation.beginElement()
-
-  # Flips the subnodes to visible
-  #
-  # @param {Function} callback if given will be called on animattion end
-  spinIn: (callback) =>
-
-    # please use caution while opening the overhead bins, as their contents may
-    # have shifted during flight.
-    @circleY = @y + @circleDY
-    @circle.setAttribute "cy", @circleY
-    @textY = @y + @textDY
-    @text.setAttribute "y", @textY
-    @priorLinePoints = @getLinePoints()
-    @line.setAttribute 'points', @priorLinePoints
-
-    animationSpec = {
-      attributeName: 'transform',
-      type: "scale",
-      from: "0 1",
-      to: "1 1",
-      dur: "0.4s",
-      repeatCount: 1,
-      begin: "indefinite",
-      fill: "freeze"
-    }
-    animation = @svgElement "animateTransform", animationSpec
-    @el.appendChild animation
-    if callback?
-      animation.addEventListener "endEvent", callback
-    animation.beginElement()
+    @scale = newScale
+    @animateElement spec, @el, callback, 'animateTransform'
 
   # using "click the circle" to test out a few behaviors I'll want later.
   circleClick: (evt) =>
-    @new_child()
+    @newChild()
   
   # demo show and hide callbacks
   textClick: (evt) =>
-    if @hidden.length != 0
+    if @visibleChildren().length != @children.length
       @showChildren()
     else
       @hideChildren()
