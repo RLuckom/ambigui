@@ -7,6 +7,7 @@ module.exports = function(grunt) {
 		    undocumented: true, 
 		    title: "<%= pkg.name %>",
                     output: "dist/docs",
+                    flags: ['--verbose'],
                     inputs: ["coffee"]
 	          }
 	},
