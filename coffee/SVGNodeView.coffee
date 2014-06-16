@@ -21,6 +21,63 @@ class SVGNodeView extends Backbone.View
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
+
+  # Makes a function that takes a percent and returns that percent
+  # interpolation between the fromValues and toValues.
+  #
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @return {Function} given %, returns fromValues + (toValues - fromValues) * %
+  interpolation: (fromValues, toValues) ->
+    if isNaN(fromValues) and isNaN(toValues)
+      diffs = (t - fromValues[i] for t, i in toValues)
+      return (percent) ->
+        f + diffs[i] * percent for f, i in fromValues
+    else
+      diff = toValues - fromValues
+      return (percent) -> fromValues + diff * percent
+
+  # Returns a function that takes a percent p and sets the specified
+  # attribute on the specified element to from + (to - from) * p
+  #
+  # formatter is a function that takes an array of values and puts them in the
+  # format required by the attribute. For instance, a formatter for a color
+  # attribute might be:
+  #
+  # formatter = (arr)-> "rgb(#{arr.join(',')})"
+  #
+  # @param {DOMNode} el element to transition
+  # @param {String} attr attribute of node to transition
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Function} formatter see above
+  transition: (el, attr, fromValues, toValues, formatter) ->
+    interpolator = @interpolation fromValues, toValues
+    return (percent) ->
+      el.setAttribute attr, formatter interpolator percent
+
+  # Returns a function f that will animate the element from the from state
+  # to the to state over the duration.
+  #
+  # @param {DOMNode} el element to transition
+  # @param {String} attr attribute of node to transition
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Function} formatter see above
+  # @param {Function} callback if given, will be executed after animation
+  animation: (el, attr, from, to, step, duration, formatter, callback) ->
+    transition = @transition el, attr, from, to, formatter
+    startTime = null
+    f = ->
+      startTime ?= new Date().getTime()
+      dT = new Date().getTime() - startTime
+      if dT >= duration
+        transition 1
+        callback() if callback?
+      else
+        transition dT / duration
+        window.setTimeout f, step
+    return f
   
   # creates an animation element from attributes in spec,
   # appends it to element parent, and if given, sets callback to fire when the
@@ -29,17 +86,32 @@ class SVGNodeView extends Backbone.View
   # @param {Object} spec dur, repeatCount, fill, and begin have auto values
   # @param {SVGElement} parentElement element to be animated
   # @param {Function} callback if given, will be executed after animation
-  # @param {String} animType defaults to 'animate'.
-  animateElement: (spec, parentElement, callback=null, animType="animate") =>
-    spec.dur ?= @animateDuration
-    spec.repeatCount ?= 1
-    spec.fill ?= "freeze"
-    spec.begin ?= "indefinite"
-    animation = @svgElement animType, spec
-    if callback?
-      animation.addEventListener "endEvent", callback
-    parentElement.appendChild animation
-    animation.beginElement()
+  animateElement: (spec, parentElement, callback=null) =>
+    duration = @animateDuration
+    if spec.attributeName in ['y', 'cy']
+      formatter = (x) -> "#{x}px"
+      @animation(
+        parentElement, spec.attributeName, spec.from,
+        spec.to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'points'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        x.join ' '
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'transform'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        "#{spec.type}(#{x.join ' '})"
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
 
   # Sets up the view. In the params below, the name 'model' is used to describe
   # the parent if provided (options.parent) or if not, the options model itself.
@@ -75,7 +147,7 @@ class SVGNodeView extends Backbone.View
     @circleDY = model.circleDY ? 0
     @nodeHeight = model.nodeHeight ? 35
     @flagpoleLength = @circleDY + @circleRadius
-    @animateDuration = model.animateDuration ? "0.4s"
+    @animateDuration = model.animateDuration ? 400
     @isHidden = model.isHidden ? false
     if options.parent?
       @parent = options.parent
@@ -149,7 +221,7 @@ class SVGNodeView extends Backbone.View
 
   # recursively updates the position of all descendent elements
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   moveChildren: (callback=null) =>
     if @children.length == 0 and callback?
       callback()
@@ -185,7 +257,7 @@ class SVGNodeView extends Backbone.View
 
   # move the line to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateLine: (callback=null)=>
     newPoints = @getLinePoints()
     @animateElement(
@@ -214,7 +286,7 @@ class SVGNodeView extends Backbone.View
 
   # move the text to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateText: (callback=null) =>
     newY = @y + @textDY
     @animateElement(
@@ -237,7 +309,7 @@ class SVGNodeView extends Backbone.View
 
   # move the circle to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateCircle: (callback=null) =>
     new_cy = @y + @circleDY
     @animateElement(
@@ -280,7 +352,7 @@ class SVGNodeView extends Backbone.View
   # Makes a function that listens for each . When all
   # children have reported back, it calls the provided callback.
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   groupActionCallback: (callback, test) ->
     return (opts) ->
       if test(opts) and callback?
@@ -303,7 +375,7 @@ class SVGNodeView extends Backbone.View
       to: newScale
     }
     @scale = newScale
-    @animateElement spec, @el, callback, 'animateTransform'
+    @animateElement spec, @el, callback
 
   # using "click the circle" to test out a few behaviors I'll want later.
   circleClick: (evt) =>

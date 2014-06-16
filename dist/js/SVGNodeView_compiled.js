@@ -50,32 +50,130 @@
       return el;
     };
 
-    SVGNodeView.prototype.animateElement = function(spec, parentElement, callback, animType) {
-      var animation;
+    SVGNodeView.prototype.interpolation = function(fromValues, toValues) {
+      var diff, diffs, i, t;
+      if (isNaN(fromValues) && isNaN(toValues)) {
+        diffs = (function() {
+          var _i, _len, _results;
+          _results = [];
+          for (i = _i = 0, _len = toValues.length; _i < _len; i = ++_i) {
+            t = toValues[i];
+            _results.push(t - fromValues[i]);
+          }
+          return _results;
+        })();
+        return function(percent) {
+          var f, _i, _len, _results;
+          _results = [];
+          for (i = _i = 0, _len = fromValues.length; _i < _len; i = ++_i) {
+            f = fromValues[i];
+            _results.push(f + diffs[i] * percent);
+          }
+          return _results;
+        };
+      } else {
+        diff = toValues - fromValues;
+        return function(percent) {
+          return fromValues + diff * percent;
+        };
+      }
+    };
+
+    SVGNodeView.prototype.transition = function(el, attr, fromValues, toValues, formatter) {
+      var interpolator;
+      interpolator = this.interpolation(fromValues, toValues);
+      return function(percent) {
+        return el.setAttribute(attr, formatter(interpolator(percent)));
+      };
+    };
+
+    SVGNodeView.prototype.animation = function(el, attr, from, to, step, duration, formatter, callback) {
+      var f, startTime, transition;
+      transition = this.transition(el, attr, from, to, formatter);
+      startTime = null;
+      f = function() {
+        var dT;
+        if (startTime == null) {
+          startTime = new Date().getTime();
+        }
+        dT = new Date().getTime() - startTime;
+        if (dT >= duration) {
+          transition(1);
+          if (callback != null) {
+            return callback();
+          }
+        } else {
+          transition(dT / duration);
+          return window.setTimeout(f, step);
+        }
+      };
+      return f;
+    };
+
+    SVGNodeView.prototype.animateElement = function(spec, parentElement, callback) {
+      var duration, formatter, from, to, x, _ref;
       if (callback == null) {
         callback = null;
       }
-      if (animType == null) {
-        animType = "animate";
+      duration = this.animateDuration;
+      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy') {
+        formatter = function(x) {
+          return "" + x + "px";
+        };
+        this.animation(parentElement, spec.attributeName, spec.from, spec.to, 20, duration, formatter, callback)();
       }
-      if (spec.dur == null) {
-        spec.dur = this.animateDuration;
+      if (spec.attributeName === 'points') {
+        from = (function() {
+          var _i, _len, _ref1, _results;
+          _ref1 = spec.from.split(' ');
+          _results = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            x = _ref1[_i];
+            _results.push(parseInt(x));
+          }
+          return _results;
+        })();
+        to = (function() {
+          var _i, _len, _ref1, _results;
+          _ref1 = spec.to.split(' ');
+          _results = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            x = _ref1[_i];
+            _results.push(parseInt(x));
+          }
+          return _results;
+        })();
+        formatter = function(x) {
+          return x.join(' ');
+        };
+        this.animation(parentElement, spec.attributeName, from, to, 20, duration, formatter, callback)();
       }
-      if (spec.repeatCount == null) {
-        spec.repeatCount = 1;
+      if (spec.attributeName === 'transform') {
+        from = (function() {
+          var _i, _len, _ref1, _results;
+          _ref1 = spec.from.split(' ');
+          _results = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            x = _ref1[_i];
+            _results.push(parseInt(x));
+          }
+          return _results;
+        })();
+        to = (function() {
+          var _i, _len, _ref1, _results;
+          _ref1 = spec.to.split(' ');
+          _results = [];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            x = _ref1[_i];
+            _results.push(parseInt(x));
+          }
+          return _results;
+        })();
+        formatter = function(x) {
+          return "" + spec.type + "(" + (x.join(' ')) + ")";
+        };
+        return this.animation(parentElement, spec.attributeName, from, to, 20, duration, formatter, callback)();
       }
-      if (spec.fill == null) {
-        spec.fill = "freeze";
-      }
-      if (spec.begin == null) {
-        spec.begin = "indefinite";
-      }
-      animation = this.svgElement(animType, spec);
-      if (callback != null) {
-        animation.addEventListener("endEvent", callback);
-      }
-      parentElement.appendChild(animation);
-      return animation.beginElement();
     };
 
     function SVGNodeView(options) {
@@ -114,7 +212,7 @@
       this.circleDY = (_ref6 = model.circleDY) != null ? _ref6 : 0;
       this.nodeHeight = (_ref7 = model.nodeHeight) != null ? _ref7 : 35;
       this.flagpoleLength = this.circleDY + this.circleRadius;
-      this.animateDuration = (_ref8 = model.animateDuration) != null ? _ref8 : "0.4s";
+      this.animateDuration = (_ref8 = model.animateDuration) != null ? _ref8 : 400;
       this.isHidden = (_ref9 = model.isHidden) != null ? _ref9 : false;
       if (options.parent != null) {
         this.parent = options.parent;
@@ -414,7 +512,7 @@
         to: newScale
       };
       this.scale = newScale;
-      return this.animateElement(spec, this.el, callback, 'animateTransform');
+      return this.animateElement(spec, this.el, callback);
     };
 
     SVGNodeView.prototype.circleClick = function(evt) {
