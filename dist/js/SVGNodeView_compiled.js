@@ -88,12 +88,14 @@
     };
 
     SVGNodeView.prototype.animation = function(el, attr, from, to, step, duration, formatter, callback) {
-      var d, f, startTime, transition;
+      var f, startTime, transition;
       transition = this.transition(el, attr, from, to, formatter);
-      d = new Date();
-      startTime = d.getTime();
+      startTime = null;
       f = function() {
         var dT;
+        if (startTime == null) {
+          startTime = new Date().getTime();
+        }
         dT = new Date().getTime() - startTime;
         if (dT >= duration) {
           transition(1);
@@ -105,36 +107,13 @@
           return window.setTimeout(f, step);
         }
       };
-      f.start = function() {
-        return startTime = new Date().getTime();
-      };
-      f.reset = function(newFrom, newTo, newDuration, newStep) {
-        if (newFrom == null) {
-          newFrom = from;
-        }
-        if (newTo == null) {
-          newTo = to;
-        }
-        if (newDuration == null) {
-          newDuration = duration;
-        }
-        if (newStep == null) {
-          newStep = step;
-        }
-        transition = this.transition(el, attr, newFrom, newTo, formatter);
-        duration = newDuration;
-        return step = newStep;
-      };
       return f;
     };
 
-    SVGNodeView.prototype.animateElement = function(spec, parentElement, callback, animType) {
+    SVGNodeView.prototype.animateElement = function(spec, parentElement, callback) {
       var duration, formatter, from, to, x, _ref;
       if (callback == null) {
         callback = null;
-      }
-      if (animType == null) {
-        animType = "animate";
       }
       duration = this.animateDuration;
       if ((_ref = spec.attributeName) === 'y' || _ref === 'cy') {
@@ -533,7 +512,7 @@
         to: newScale
       };
       this.scale = newScale;
-      return this.animateElement(spec, this.el, callback, 'animateTransform');
+      return this.animateElement(spec, this.el, callback);
     };
 
     SVGNodeView.prototype.circleClick = function(evt) {
