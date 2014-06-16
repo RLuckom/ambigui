@@ -21,6 +21,39 @@ class SVGNodeView extends Backbone.View
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
+
+  interpolation: (fromValues, toValues) ->
+    if isNaN(fromValues) and isNaN(toValues)
+      diffs = (t - fromValues[i] for t, i in toValues)
+      return (percent) ->
+        f + diffs[i] * percent for f, i in fromValues
+    else
+      diff = toValues - fromValues
+      return (percent) -> fromValues + diff * percent
+
+  transition: (el, attr, fromValues, toValues, formatter) ->
+    interpolator = @interpolation fromValues, toValues
+    return (percent) ->
+      el.setAttribute attr, formatter interpolator percent
+
+  animation: (el, attr, from, to, step, duration, formatter, callback) ->
+    transition = @transition el, attr, from, to, formatter
+    d = new Date()
+    startTime = d.getTime()
+    f = ->
+      dT = new Date().getTime() - startTime
+      if dT >= duration
+        transition 1
+        callback() if callback?
+      else
+        transition dT / duration
+        window.setTimeout f, step
+    f.start = -> startTime = new Date().getTime()
+    f.reset = (newFrom=from, newTo=to, newDuration=duration, newStep=step) ->
+      transition = @transition el, attr, newFrom, newTo, formatter
+      duration = newDuration
+      step = newStep
+    return f
   
   # creates an animation element from attributes in spec,
   # appends it to element parent, and if given, sets callback to fire when the
@@ -31,15 +64,41 @@ class SVGNodeView extends Backbone.View
   # @param {Function} callback if given, will be executed after animation
   # @param {String} animType defaults to 'animate'.
   animateElement: (spec, parentElement, callback=null, animType="animate") =>
-    spec.dur ?= @animateDuration
-    spec.repeatCount ?= 1
-    spec.fill ?= "freeze"
-    spec.begin ?= "indefinite"
-    animation = @svgElement animType, spec
-    if callback?
-      animation.addEventListener "endEvent", callback
-    parentElement.appendChild animation
-    animation.beginElement()
+    duration = @animateDuration
+    if spec.attributeName in ['y', 'cy']
+      formatter = (x) -> "#{x}px"
+      @animation(
+        parentElement, spec.attributeName, spec.from,
+        spec.to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'points'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        x.join ' '
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'transform'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        "#{spec.type}(#{x.join ' '})"
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
+
+    #spec.dur ?= @animateDuration
+    #spec.repeatCount ?= 1
+    #spec.fill ?= "freeze"
+    #spec.begin ?= "indefinite"
+    #animation = @svgElement animType, spec
+    #if callback?
+    #  animation.addEventListener "endEvent", callback
+    #parentElement.appendChild animation
+    #animation.beginElement()
 
   # Sets up the view. In the params below, the name 'model' is used to describe
   # the parent if provided (options.parent) or if not, the options model itself.
@@ -75,7 +134,7 @@ class SVGNodeView extends Backbone.View
     @circleDY = model.circleDY ? 0
     @nodeHeight = model.nodeHeight ? 35
     @flagpoleLength = @circleDY + @circleRadius
-    @animateDuration = model.animateDuration ? "0.4s"
+    @animateDuration = model.animateDuration ? 400
     @isHidden = model.isHidden ? false
     if options.parent?
       @parent = options.parent
