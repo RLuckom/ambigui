@@ -177,8 +177,8 @@
     };
 
     function SVGNodeView(options) {
-      this.textClick = __bind(this.textClick, this);
       this.circleClick = __bind(this.circleClick, this);
+      this.textClick = __bind(this.textClick, this);
       this.animateVisible = __bind(this.animateVisible, this);
       this.visibleChildren = __bind(this.visibleChildren, this);
       this.hide = __bind(this.hide, this);
@@ -199,7 +199,7 @@
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.animateElement = __bind(this.animateElement, this);
-      var model, _ref, _ref1, _ref10, _ref11, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+      var model, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       SVGNodeView.__super__.constructor.call(this, options);
       this.children = [];
       this.scale = '1 1';
@@ -214,21 +214,17 @@
       this.flagpoleLength = this.circleDY + this.circleRadius;
       this.animateDuration = (_ref8 = model.animateDuration) != null ? _ref8 : 400;
       this.isHidden = (_ref9 = model.isHidden) != null ? _ref9 : false;
+      this.emptyColor = (_ref10 = model.emptyColor) != null ? _ref10 : 'white';
+      this.treeColor = (_ref11 = model.treeColor) != null ? _ref11 : 'blue';
       if (options.parent != null) {
         this.parent = options.parent;
       } else {
         this.isRoot = true;
       }
-      this.x = (_ref10 = options.x) != null ? _ref10 : 5;
-      this.y = (_ref11 = options.y) != null ? _ref11 : 40;
-      this.line = this.makeLine();
-      this.circle = this.makeCircle();
-      this.circle.addEventListener("click", this.circleClick);
-      this.text = this.makeText();
-      this.text.addEventListener("click", this.textClick);
-      this.el.appendChild(this.line);
-      this.el.appendChild(this.circle);
-      this.el.appendChild(this.text);
+      this.x = (_ref12 = options.x) != null ? _ref12 : 5;
+      this.y = (_ref13 = options.y) != null ? _ref13 : 40;
+      this.makeLine();
+      this.makeText();
     }
 
     SVGNodeView.prototype.newChild = function(name) {
@@ -343,12 +339,13 @@
 
     SVGNodeView.prototype.makeLine = function() {
       this.linePoints = this.getLinePoints();
-      return this.svgElement("polyline", {
+      this.line = this.svgElement("polyline", {
         fill: "none",
         points: this.linePoints,
         'stroke-width': "2px",
-        stroke: "blue"
+        stroke: this.treeColor
       });
+      return this.el.appendChild(this.line);
     };
 
     SVGNodeView.prototype.animateLine = function(callback) {
@@ -366,16 +363,16 @@
     };
 
     SVGNodeView.prototype.makeText = function() {
-      var t;
       this.textX = this.textDX;
       this.textY = this.y + this.textDY;
-      t = this.svgElement("text", {
+      this.text = this.svgElement("text", {
         fill: "black",
         x: this.textDX,
         y: this.y + this.textDY
       });
-      t.appendChild(document.createTextNode(this.name));
-      return t;
+      this.text.appendChild(document.createTextNode(this.name));
+      this.text.addEventListener("click", this.textClick);
+      return this.el.appendChild(this.text);
     };
 
     SVGNodeView.prototype.animateText = function(callback) {
@@ -395,20 +392,29 @@
     SVGNodeView.prototype.makeCircle = function() {
       this.circleX = this.indent;
       this.circleY = this.y + this.circleDY;
-      return this.svgElement("circle", {
-        fill: "blue",
+      this.circle = this.svgElement("circle", {
+        fill: this.treeColor,
         cx: this.indent,
         cy: this.y + this.circleDY,
         r: this.circleRadius,
         "stroke-width": "2px",
-        stroke: "blue"
+        stroke: this.treeColor
       });
+      this.circle.addEventListener("click", this.circleClick);
+      return this.el.appendChild(this.circle);
     };
 
     SVGNodeView.prototype.animateCircle = function(callback) {
-      var new_cy;
+      var color, new_cy;
       if (callback == null) {
         callback = null;
+      }
+      if (this.circle == null) {
+        if (this.visibleChildren().length === 0) {
+          return;
+        } else {
+          this.makeCircle();
+        }
       }
       new_cy = this.y + this.circleDY;
       this.animateElement({
@@ -416,7 +422,9 @@
         to: new_cy,
         from: this.circleY
       }, this.circle, callback);
-      return this.circleY = new_cy;
+      this.circleY = new_cy;
+      color = this.visibleChildren().length === 0 ? this.treeColor : this.emptyColor;
+      return this.circle.setAttribute('fill', color);
     };
 
     SVGNodeView.prototype.showChildren = function() {
@@ -515,11 +523,11 @@
       return this.animateElement(spec, this.el, callback);
     };
 
-    SVGNodeView.prototype.circleClick = function(evt) {
+    SVGNodeView.prototype.textClick = function(evt) {
       return this.newChild();
     };
 
-    SVGNodeView.prototype.textClick = function(evt) {
+    SVGNodeView.prototype.circleClick = function(evt) {
       if (this.visibleChildren().length !== this.children.length) {
         return this.showChildren();
       } else {

@@ -134,6 +134,7 @@ class SVGNodeView extends Backbone.View
   # @param {Number} model.nodeHeight dy by which to translate for each node.
   # @param {Number} model.animateDuration time to allow for animations.
   # @param {Bool} model.isHidden whether to display the node
+  # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
     super options
     @children = []
@@ -149,20 +150,16 @@ class SVGNodeView extends Backbone.View
     @flagpoleLength = @circleDY + @circleRadius
     @animateDuration = model.animateDuration ? 400
     @isHidden = model.isHidden ? false
+    @emptyColor = model.emptyColor ? 'white'
+    @treeColor = model.treeColor ? 'blue'
     if options.parent?
       @parent = options.parent
     else
       @isRoot = true
     @x = options.x ? 5
     @y = options.y ? 40
-    @line = @makeLine()
-    @circle = @makeCircle()
-    @circle.addEventListener "click", @circleClick
-    @text = @makeText()
-    @text.addEventListener "click", @textClick
-    @el.appendChild @line
-    @el.appendChild @circle
-    @el.appendChild @text
+    @makeLine()
+    @makeText()
 
   # @param {String} name text to display in tree
   # @return {SVGNodeView} child nodeview with name name
@@ -248,12 +245,13 @@ class SVGNodeView extends Backbone.View
   # @return {DOM.SVGSVGElement} polyline
   makeLine:  =>
     @linePoints = @getLinePoints()
-    @svgElement "polyline",  {
+    @line = @svgElement "polyline",  {
       fill: "none",
       points: @linePoints,
       'stroke-width': "2px",
-      stroke: "blue"
+      stroke: @treeColor
     }
+    @el.appendChild @line
 
   # move the line to the correct position
   #
@@ -276,13 +274,14 @@ class SVGNodeView extends Backbone.View
   makeText: =>
     @textX = @textDX
     @textY = @y + @textDY
-    t = @svgElement "text", {
+    @text = @svgElement "text", {
       fill: "black",
       x: @textDX,
       y: @y + @textDY
     }
-    t.appendChild document.createTextNode @name
-    return t
+    @text.appendChild document.createTextNode @name
+    @text.addEventListener "click", @textClick
+    @el.appendChild @text
 
   # move the text to the correct position
   #
@@ -298,24 +297,33 @@ class SVGNodeView extends Backbone.View
   makeCircle: =>
     @circleX = @indent
     @circleY = @y + @circleDY
-    @svgElement "circle", {
-      fill: "blue",
+    @circle = @svgElement "circle", {
+      fill: @treeColor,
       cx: @indent,
       cy: @y + @circleDY,
       r: @circleRadius,
       "stroke-width": "2px",
-      stroke: "blue"
+      stroke: @treeColor
     }
+    @circle.addEventListener "click", @circleClick
+    @el.appendChild @circle
 
   # move the circle to the correct position
   #
   # @param {Function} callback if given will be called on animation end
   animateCircle: (callback=null) =>
+    if not @circle?
+      if @visibleChildren().length == 0
+        return
+      else
+        @makeCircle()
     new_cy = @y + @circleDY
     @animateElement(
       {attributeName: 'cy', to: new_cy, from: @circleY}, @circle, callback
     )
     @circleY = new_cy
+    color = if @visibleChildren().length == 0 then @treeColor else @emptyColor
+    @circle.setAttribute 'fill', color
 
   # Shows the immediate children of this node
   showChildren: =>
@@ -378,11 +386,11 @@ class SVGNodeView extends Backbone.View
     @animateElement spec, @el, callback
 
   # using "click the circle" to test out a few behaviors I'll want later.
-  circleClick: (evt) =>
+  textClick: (evt) =>
     @newChild()
   
   # demo show and hide callbacks
-  textClick: (evt) =>
+  circleClick: (evt) =>
     if @visibleChildren().length != @children.length
       @showChildren()
     else
