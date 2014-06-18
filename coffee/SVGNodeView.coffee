@@ -8,7 +8,7 @@ drawSVG = ->
   x = new SVGNodeView(el: svg)
 
 # View to manage a single node on the tree of the scene graph
-class SVGNodeView extends Backbone.View
+class SVGNodeView
 
   # Creates a tag element in the svg namespace
   #
@@ -136,7 +136,7 @@ class SVGNodeView extends Backbone.View
   # @param {Bool} model.isHidden whether to display the node
   # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
-    super options
+    @el = options.el
     @children = []
     @scale = '1 1'
     model = options.parent ? options
@@ -179,14 +179,12 @@ class SVGNodeView extends Backbone.View
     }
     child = new SVGNodeView child_spec
     @children.push child
-    @listenTo child, "request_update", @requestUpdate
-    @trigger 'request_update'
-    if @isRoot then @updatePosition()
+    @requestUpdate()
 
   # request gets passed up the chain, root calls update.
   requestUpdate: () =>
-    if not @isRoot
-      @trigger "request_update"
+    if @parent?
+      @parent.requestUpdate()
     else
       @updatePosition()
 
@@ -330,14 +328,12 @@ class SVGNodeView extends Backbone.View
     for child in @children
       child.isHidden = false
     @updateChildren()
-    @trigger "request_update"
-    if @isRoot
-      @updatePosition()
+    @requestUpdate()
 
   # Hides all visible descendants of this node.
   hideChildren: =>
     test = => @visibleChildren().length == 0
-    trigger = => @trigger "request_update"
+    trigger = => @requestUpdate()
     f = @groupActionCallback trigger, test
     if @isRoot
       f = @groupActionCallback @updatePosition, test

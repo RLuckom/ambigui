@@ -1,8 +1,6 @@
 (function() {
   var SVGNodeView, drawSVG, exports, module, registerGlobal,
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
-    __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   exports = exports != null ? exports : this;
 
@@ -28,9 +26,7 @@
     });
   };
 
-  SVGNodeView = (function(_super) {
-    __extends(SVGNodeView, _super);
-
+  SVGNodeView = (function() {
     SVGNodeView.prototype.svgElement = function(tag, attributes) {
       var attr, el, value;
       if (attributes == null) {
@@ -200,7 +196,7 @@
       this.newChild = __bind(this.newChild, this);
       this.animateElement = __bind(this.animateElement, this);
       var model, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
-      SVGNodeView.__super__.constructor.call(this, options);
+      this.el = options.el;
       this.children = [];
       this.scale = '1 1';
       model = (_ref = options.parent) != null ? _ref : options;
@@ -253,16 +249,12 @@
       };
       child = new SVGNodeView(child_spec);
       this.children.push(child);
-      this.listenTo(child, "request_update", this.requestUpdate);
-      this.trigger('request_update');
-      if (this.isRoot) {
-        return this.updatePosition();
-      }
+      return this.requestUpdate();
     };
 
     SVGNodeView.prototype.requestUpdate = function() {
-      if (!this.isRoot) {
-        return this.trigger("request_update");
+      if (this.parent != null) {
+        return this.parent.requestUpdate();
       } else {
         return this.updatePosition();
       }
@@ -435,10 +427,7 @@
         child.isHidden = false;
       }
       this.updateChildren();
-      this.trigger("request_update");
-      if (this.isRoot) {
-        return this.updatePosition();
-      }
+      return this.requestUpdate();
     };
 
     SVGNodeView.prototype.hideChildren = function() {
@@ -450,7 +439,7 @@
       })(this);
       trigger = (function(_this) {
         return function() {
-          return _this.trigger("request_update");
+          return _this.requestUpdate();
         };
       })(this);
       f = this.groupActionCallback(trigger, test);
@@ -537,7 +526,7 @@
 
     return SVGNodeView;
 
-  })(Backbone.View);
+  })();
 
   module.SVGNodeView = SVGNodeView;
 
