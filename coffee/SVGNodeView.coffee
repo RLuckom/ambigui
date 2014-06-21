@@ -8,7 +8,7 @@ drawSVG = ->
   x = new SVGNodeView(el: svg)
 
 # View to manage a single node on the tree of the scene graph
-class SVGNodeView extends Backbone.View
+class SVGNodeView
 
   # Creates a tag element in the svg namespace
   #
@@ -21,6 +21,63 @@ class SVGNodeView extends Backbone.View
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
+
+  # Makes a function that takes a percent and returns that percent
+  # interpolation between the fromValues and toValues.
+  #
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @return {Function} given %, returns fromValues + (toValues - fromValues) * %
+  interpolation: (fromValues, toValues) ->
+    if isNaN(fromValues) and isNaN(toValues)
+      diffs = (t - fromValues[i] for t, i in toValues)
+      return (percent) ->
+        f + diffs[i] * percent for f, i in fromValues
+    else
+      diff = toValues - fromValues
+      return (percent) -> fromValues + diff * percent
+
+  # Returns a function that takes a percent p and sets the specified
+  # attribute on the specified element to from + (to - from) * p
+  #
+  # formatter is a function that takes an array of values and puts them in the
+  # format required by the attribute. For instance, a formatter for a color
+  # attribute might be:
+  #
+  # formatter = (arr)-> "rgb(#{arr.join(',')})"
+  #
+  # @param {DOMNode} el element to transition
+  # @param {String} attr attribute of node to transition
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Function} formatter see above
+  transition: (el, attr, fromValues, toValues, formatter) ->
+    interpolator = @interpolation fromValues, toValues
+    return (percent) ->
+      el.setAttribute attr, formatter interpolator percent
+
+  # Returns a function f that will animate the element from the from state
+  # to the to state over the duration.
+  #
+  # @param {DOMNode} el element to transition
+  # @param {String} attr attribute of node to transition
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Function} formatter see above
+  # @param {Function} callback if given, will be executed after animation
+  animation: (el, attr, from, to, step, duration, formatter, callback) ->
+    transition = @transition el, attr, from, to, formatter
+    startTime = null
+    f = ->
+      startTime ?= new Date().getTime()
+      dT = new Date().getTime() - startTime
+      if dT >= duration
+        transition 1
+        callback() if callback?
+      else
+        transition dT / duration
+        window.setTimeout f, step
+    return f
   
   # creates an animation element from attributes in spec,
   # appends it to element parent, and if given, sets callback to fire when the
@@ -29,17 +86,32 @@ class SVGNodeView extends Backbone.View
   # @param {Object} spec dur, repeatCount, fill, and begin have auto values
   # @param {SVGElement} parentElement element to be animated
   # @param {Function} callback if given, will be executed after animation
-  # @param {String} animType defaults to 'animate'.
-  animateElement: (spec, parentElement, callback=null, animType="animate") =>
-    spec.dur ?= @animateDuration
-    spec.repeatCount ?= 1
-    spec.fill ?= "freeze"
-    spec.begin ?= "indefinite"
-    animation = @svgElement animType, spec
-    if callback?
-      animation.addEventListener "endEvent", callback
-    parentElement.appendChild animation
-    animation.beginElement()
+  animateElement: (spec, parentElement, callback=null) =>
+    duration = @animateDuration
+    if spec.attributeName in ['y', 'cy']
+      formatter = (x) -> "#{x}px"
+      @animation(
+        parentElement, spec.attributeName, spec.from,
+        spec.to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'points'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        x.join ' '
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
+    if spec.attributeName == 'transform'
+      from = (parseInt(x) for x in spec.from.split ' ')
+      to = (parseInt(x) for x in spec.to.split ' ')
+      formatter = (x) ->
+        "#{spec.type}(#{x.join ' '})"
+      @animation(
+        parentElement, spec.attributeName, from,
+        to, 20, duration, formatter, callback
+      )()
 
   # Sets up the view. In the params below, the name 'model' is used to describe
   # the parent if provided (options.parent) or if not, the options model itself.
@@ -62,8 +134,9 @@ class SVGNodeView extends Backbone.View
   # @param {Number} model.nodeHeight dy by which to translate for each node.
   # @param {Number} model.animateDuration time to allow for animations.
   # @param {Bool} model.isHidden whether to display the node
+  # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
-    super options
+    @el = options.el
     @children = []
     @scale = '1 1'
     model = options.parent ? options
@@ -75,22 +148,18 @@ class SVGNodeView extends Backbone.View
     @circleDY = model.circleDY ? 0
     @nodeHeight = model.nodeHeight ? 35
     @flagpoleLength = @circleDY + @circleRadius
-    @animateDuration = model.animateDuration ? "0.4s"
+    @animateDuration = model.animateDuration ? 400
     @isHidden = model.isHidden ? false
+    @emptyColor = model.emptyColor ? 'white'
+    @treeColor = model.treeColor ? 'blue'
     if options.parent?
       @parent = options.parent
     else
       @isRoot = true
     @x = options.x ? 5
     @y = options.y ? 40
-    @line = @makeLine()
-    @circle = @makeCircle()
-    @circle.addEventListener "click", @circleClick
-    @text = @makeText()
-    @text.addEventListener "click", @textClick
-    @el.appendChild @line
-    @el.appendChild @circle
-    @el.appendChild @text
+    @makeLine()
+    @makeText()
 
   # @param {String} name text to display in tree
   # @return {SVGNodeView} child nodeview with name name
@@ -110,14 +179,12 @@ class SVGNodeView extends Backbone.View
     }
     child = new SVGNodeView child_spec
     @children.push child
-    @listenTo child, "request_update", @requestUpdate
-    @trigger 'request_update'
-    if @isRoot then @updatePosition()
+    @requestUpdate()
 
   # request gets passed up the chain, root calls update.
   requestUpdate: () =>
-    if not @isRoot
-      @trigger "request_update"
+    if @parent?
+      @parent.requestUpdate()
     else
       @updatePosition()
 
@@ -149,7 +216,7 @@ class SVGNodeView extends Backbone.View
 
   # recursively updates the position of all descendent elements
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   moveChildren: (callback=null) =>
     if @children.length == 0 and callback?
       callback()
@@ -176,16 +243,17 @@ class SVGNodeView extends Backbone.View
   # @return {DOM.SVGSVGElement} polyline
   makeLine:  =>
     @linePoints = @getLinePoints()
-    @svgElement "polyline",  {
+    @line = @svgElement "polyline",  {
       fill: "none",
       points: @linePoints,
       'stroke-width': "2px",
-      stroke: "blue"
+      stroke: @treeColor
     }
+    @el.appendChild @line
 
   # move the line to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateLine: (callback=null)=>
     newPoints = @getLinePoints()
     @animateElement(
@@ -204,17 +272,18 @@ class SVGNodeView extends Backbone.View
   makeText: =>
     @textX = @textDX
     @textY = @y + @textDY
-    t = @svgElement "text", {
+    @text = @svgElement "text", {
       fill: "black",
       x: @textDX,
       y: @y + @textDY
     }
-    t.appendChild document.createTextNode @name
-    return t
+    @text.appendChild document.createTextNode @name
+    @text.addEventListener "click", @textClick
+    @el.appendChild @text
 
   # move the text to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateText: (callback=null) =>
     newY = @y + @textDY
     @animateElement(
@@ -226,38 +295,45 @@ class SVGNodeView extends Backbone.View
   makeCircle: =>
     @circleX = @indent
     @circleY = @y + @circleDY
-    @svgElement "circle", {
-      fill: "blue",
+    @circle = @svgElement "circle", {
+      fill: @treeColor,
       cx: @indent,
       cy: @y + @circleDY,
       r: @circleRadius,
       "stroke-width": "2px",
-      stroke: "blue"
+      stroke: @treeColor
     }
+    @circle.addEventListener "click", @circleClick
+    @el.appendChild @circle
 
   # move the circle to the correct position
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   animateCircle: (callback=null) =>
+    if not @circle?
+      if @visibleChildren().length == 0
+        return
+      else
+        @makeCircle()
     new_cy = @y + @circleDY
     @animateElement(
       {attributeName: 'cy', to: new_cy, from: @circleY}, @circle, callback
     )
     @circleY = new_cy
+    color = if @visibleChildren().length == 0 then @treeColor else @emptyColor
+    @circle.setAttribute 'fill', color
 
   # Shows the immediate children of this node
   showChildren: =>
     for child in @children
       child.isHidden = false
     @updateChildren()
-    @trigger "request_update"
-    if @isRoot
-      @updatePosition()
+    @requestUpdate()
 
   # Hides all visible descendants of this node.
   hideChildren: =>
     test = => @visibleChildren().length == 0
-    trigger = => @trigger "request_update"
+    trigger = => @requestUpdate()
     f = @groupActionCallback trigger, test
     if @isRoot
       f = @groupActionCallback @updatePosition, test
@@ -280,7 +356,7 @@ class SVGNodeView extends Backbone.View
   # Makes a function that listens for each . When all
   # children have reported back, it calls the provided callback.
   #
-  # @param {Function} callback if given will be called on animattion end
+  # @param {Function} callback if given will be called on animation end
   groupActionCallback: (callback, test) ->
     return (opts) ->
       if test(opts) and callback?
@@ -303,14 +379,14 @@ class SVGNodeView extends Backbone.View
       to: newScale
     }
     @scale = newScale
-    @animateElement spec, @el, callback, 'animateTransform'
+    @animateElement spec, @el, callback
 
   # using "click the circle" to test out a few behaviors I'll want later.
-  circleClick: (evt) =>
+  textClick: (evt) =>
     @newChild()
   
   # demo show and hide callbacks
-  textClick: (evt) =>
+  circleClick: (evt) =>
     if @visibleChildren().length != @children.length
       @showChildren()
     else
