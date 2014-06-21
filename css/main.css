@@ -94,6 +94,10 @@ a:visited { color: #a0a; }
   color: #aaa;
 }
 
+.meta a {
+  color: #aaa;
+}
+
 .footer {
   font-size: 80%;
   color: #666;

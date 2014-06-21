@@ -13,7 +13,7 @@
     <body>
         <div class="site">
           <div class="header">
-            <h1 class="title"><a href="/">ambigui</a></h1>
+            <h1 class="title"><a href="github.com/rluckom/ambigui">ambigui</a></h1>
             <a href="https://github.com/RLuckom/ambigui/zipball/master" id="download-zip" class="extra"><span>Download .zip</span></a>
             <a href="https://github.com/RLuckom/ambigui/tarball/master" id="download-tar-gz" class="extra"><span>Download .tar.gz</span></a>
             <a href="https://github.com/RLuckom/ambigui" id="view-on-github" class="extra"><span>View on GitHub</span></a>
@@ -27,13 +27,32 @@
         childrens' visibility.</p>
         <script>
             window.onload = function() {
-                    DOGWOOD.drawSVG();
-	    };
+              svg = document.createElementNS("http://www.w3.org/2000/svg", 'svg');
+              svg.setAttribute('style', "width: 600px; height:500px;");
+              document.getElementById("svgDiv").appendChild(svg);
+              x = new DOGWOOD.SVGTreeNode({
+                el: svg,
+                text: 'Errands',
+                children: [
+                  {text: 'Grocery List',
+                  children: [
+                    {text: 'bread'},
+                    {text: 'milk'},
+                    {text: 'eggs'},
+                  ]},
+                  {text: "Hardware Store",
+                  children: [
+                    {text: "Hammer"},
+                    {text: "Another Hammer"}
+                  ]}
+                ]
+              });
+            }
 
         </script>
         <div id="svgDiv" ></div>
      <footer>
-        <p class="meta"> <b>ambigui</b>
+         <p class="meta"><a href="github.com/rluckom/ambigui"><b>ambigui</b></a>
             is a parent project for composable, dependency-free UI elements that do exactly what I want.
             It is MIT licensed.
         </p>

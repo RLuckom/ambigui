@@ -1,14 +1,7 @@
 registerGlobal 'DOGWOOD', module
 
-# Populates the svg handlebars template
-drawSVG = ->
-  svg = document.createElementNS("http://www.w3.org/2000/svg", 'svg')
-  svg.setAttribute 'style', "width: 600px; height:500px;"
-  document.getElementById("svgDiv").appendChild svg
-  x = new SVGNodeView(el: svg)
-
-# View to manage a single node on the tree of the scene graph
-class SVGNodeView
+# Recursive tree node.
+class SVGTreeNode
 
   # Creates a tag element in the svg namespace
   #
@@ -63,7 +56,7 @@ class SVGNodeView
   # @param {String} attr attribute of node to transition
   # @param {Number or Array} fromValues if Array, must be of Numbers
   # @param {Number or Array} toValues if Array, must be of Numbers
-  # @param {Function} formatter see above
+  # @param {Function} formatter see transition
   # @param {Function} callback if given, will be executed after animation
   animation: (el, attr, from, to, step, duration, formatter, callback) ->
     transition = @transition el, attr, from, to, formatter
@@ -113,6 +106,20 @@ class SVGNodeView
         to, 20, duration, formatter, callback
       )()
 
+  # returns data about the tree
+  toString: =>
+    s = "name: #{@name}\n isHidden: #{@isHidden} x: #{@x} y: #{@y}"
+    s += " textDX: #{@textDX} textDY: #{@textDY} textX: #{@textX}"
+    s += " textY: #{@textY} linePoints: #{@linePoints} circleX: #{@circleX}"
+    s += " circleY #{@circleY}"
+    s += " scale: #{@scale}"
+    s += "\n"
+    s += child.toString() for child in @children
+    ret = ''
+    for line in s.split("\n")
+      ret += '   ' + line + "\n"
+    return ret
+
   # Sets up the view. In the params below, the name 'model' is used to describe
   # the parent if provided (options.parent) or if not, the options model itself.
   # So 'model.indent' means options.parent.indent or options.indent if
@@ -124,7 +131,7 @@ class SVGNodeView
   # text is above the line.
   #
   # @param {Object} options
-  # @param {SVGNodeView} options.parent If provided, used to populate members.
+  # @param {SVGTreeNode} options.parent If provided, used to populate members.
   # @param {String} options.text the text to display on the node.
   # @param {Number} model.indent x-distance to translate per generation.
   # @param {Number} model.textDX x-offset of the text from 0 in the node-frame.
@@ -133,12 +140,11 @@ class SVGNodeView
   # @param {Number} model.circleDY y-offset of circle from node-frame origin.
   # @param {Number} model.nodeHeight dy by which to translate for each node.
   # @param {Number} model.animateDuration time to allow for animations.
-  # @param {Bool} model.isHidden whether to display the node
+  # @param {Bool} options.isHidden whether to display the node
   # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
     @el = options.el
     @children = []
-    @scale = '1 1'
     model = options.parent ? options
     @name = options.text ? "Root"
     @indent = model.indent ? 40
@@ -149,40 +155,51 @@ class SVGNodeView
     @nodeHeight = model.nodeHeight ? 35
     @flagpoleLength = @circleDY + @circleRadius
     @animateDuration = model.animateDuration ? 400
-    @isHidden = model.isHidden ? false
+    @isHidden = options.isHidden ? false
+    @scale = if @isHidden then "0 1" else "1 1"
     @emptyColor = model.emptyColor ? 'white'
     @treeColor = model.treeColor ? 'blue'
+    @x = options.x ? 5
+    @y = options.y ? 40
     if options.parent?
       @parent = options.parent
     else
       @isRoot = true
-    @x = options.x ? 5
-    @y = options.y ? 40
     @makeLine()
     @makeText()
+    if @isHidden and options.children?
+      @circleY = @y + @circleDY
+      @circleX = @indent
+    if options.children?
+      for child in options.children
+        child.isHidden = true
+        @newChild(child)
 
   # @param {String} name text to display in tree
-  # @return {SVGNodeView} child nodeview with name name
-  newChild: (name="child") =>
-    child.isHidden = false for child in @children
+  # @return {SVGTreeNode} child nodeview with name name
+  newChild: (options={}) =>
+    if not (@circle? or @isHidden)
+      @makeCircle()
     transform_spec = transform: "translate(#{@indent}, 0)"
     spacer_el = @svgElement "g", transform_spec
-    child_el = @svgElement "g"
+    scale = if options.isHidden then "0 1" else "1 1"
+    transform_spec = transform: "scale(#{scale})"
+    child_el = @svgElement "g", transform_spec
     spacer_el.appendChild child_el
     @el.appendChild spacer_el
-    child_spec = {
-      el: child_el,
-      parent: this,
-      text:name,
-      x: @x + @indent,
-      y: @y + @numDescendants() * @nodeHeight
-    }
-    child = new SVGNodeView child_spec
+    options.el = child_el
+    options.parent = this
+    options.text ?= 'child'
+    options.x = @x + @indent
+    if options.isHidden
+      options.y = @y
+    else
+      options.y = @y + @numDescendants() * @nodeHeight
+    child = new SVGTreeNode options
     @children.push child
-    @requestUpdate()
 
   # request gets passed up the chain, root calls update.
-  requestUpdate: () =>
+  requestUpdate: =>
     if @parent?
       @parent.requestUpdate()
     else
@@ -193,6 +210,9 @@ class SVGNodeView
   updatePosition: (callback=null) =>
     @updateChildren()
     @moveChildren()
+    @move()
+
+  move: =>
     @animateLine()
     @animateText()
     @animateCircle()
@@ -208,7 +228,7 @@ class SVGNodeView
 
   # Populates child with correct current values
   #
-  # @param {SVGNodeView} child
+  # @param {SVGTreeNode} child
   # @param {Number} index index of child in this.children
   updateChild: (child, index) =>
     child.x = @x + @indent
@@ -255,6 +275,11 @@ class SVGNodeView
   #
   # @param {Function} callback if given will be called on animation end
   animateLine: (callback=null)=>
+    if not @line?
+      if @isHidden
+        @linePoints = @getLinePoints()
+        return
+      @makeLine()
     newPoints = @getLinePoints()
     @animateElement(
       {attributeName: 'points', from: @linePoints, to: newPoints},
@@ -285,6 +310,10 @@ class SVGNodeView
   #
   # @param {Function} callback if given will be called on animation end
   animateText: (callback=null) =>
+    if not @text?
+      if @isHidden
+        return
+      @makeText()
     newY = @y + @textDY
     @animateElement(
       {attributeName: 'y', to: newY, from: @textY}, @text, callback
@@ -294,7 +323,7 @@ class SVGNodeView
   # @return {DOM.SVGSVGElement} circle
   makeCircle: =>
     @circleX = @indent
-    @circleY = @y + @circleDY
+    @circleY ?= @y + @circleDY
     @circle = @svgElement "circle", {
       fill: @treeColor,
       cx: @indent,
@@ -311,7 +340,7 @@ class SVGNodeView
   # @param {Function} callback if given will be called on animation end
   animateCircle: (callback=null) =>
     if not @circle?
-      if @visibleChildren().length == 0
+      if (@children.length == 0) or @isHidden
         return
       else
         @makeCircle()
@@ -383,7 +412,12 @@ class SVGNodeView
 
   # using "click the circle" to test out a few behaviors I'll want later.
   textClick: (evt) =>
-    @newChild()
+    options = {}
+    if @visibleChildren().length != @children.length
+      options.isHidden = true
+    @newChild(options)
+    if options.isHidden
+      @showChildren()
   
   # demo show and hide callbacks
   circleClick: (evt) =>
@@ -392,6 +426,6 @@ class SVGNodeView
     else
       @hideChildren()
 
-module.SVGNodeView = SVGNodeView
+module.SVGTreeNode = SVGTreeNode
 
 module.drawSVG = drawSVG
