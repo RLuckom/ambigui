@@ -1,4 +1,4 @@
-ambiGUI
+ambigui
 ---------
 
 I was looking for a SVG tree UI for [another
