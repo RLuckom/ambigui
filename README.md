@@ -1,13 +1,14 @@
-RLuckomUI
+ambiGUI
 ---------
 
 I was looking for a SVG tree UI for [another
 project](https://rluckom.github.io/lasertutor), but I couldn't find any that
 were exactly what I wanted. I'd already added jQuery, Handlebars, Backbone, and
 THREE.js on that project, and I was coming down with a serious case of
-Dependency Fatigue. So I decided to make one for myself.
+Dependency Fatigue. So I decided to make one for myself. AmbiGUI is a parent
+project to contain purpose-built, no-dependency composable UI elements. 
 
-There's a [demo](https://rluckom.github.io/rluckomui#DOGWOOD) but I'm definitely 
+There's a [demo](https://rluckom.github.io/ambigui#DOGWOOD) but I'm definitely 
 not finished yet. Upcoming improvements, in vague order of priority:
 
  * Support touch navigation, not just mouse
