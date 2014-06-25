@@ -10,7 +10,18 @@ class SVGTreeNode
   svgElement: (tag, attributes={}) ->
     el = document.createElementNS("http://www.w3.org/2000/svg", tag)
     attributes.version ?= "1.1"
-    attributes.xmlns ?= "http://www.w3.org/2000/svg"
+    attributes.xmlns = "http://www.w3.org/2000/svg"
+    for attr, value of attributes
+      el.setAttribute(attr, value)
+    return el
+
+  # Creates a tag element in the svg namespace
+  #
+  # @param {String} tag tag type e.g. 'svg' 'path' 'rect
+  # @param {Object} attributes key-value pairs to be set as attributes
+  htmlElement: (tag, attributes={}) ->
+    el = document.createElementNS("http://www.w3.org/1999/xhtml", tag)
+    attributes.xmlns = "http://www.w3.org/1999/xhtml"
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
@@ -109,8 +120,9 @@ class SVGTreeNode
   # returns data about the tree
   toString: =>
     s = "name: #{@name}\n isHidden: #{@isHidden} x: #{@x} y: #{@y}"
-    s += " textDX: #{@textDX} textDY: #{@textDY} textX: #{@textX}"
-    s += " textY: #{@textY} linePoints: #{@linePoints} circleX: #{@circleX}"
+    s += " contentDX: #{@contentDX} contentOffset: #{@marginBottom()} "
+    s += "contentX: #{@contentX}"
+    s += " textY: #{@contentY} linePoints: #{@linePoints} circleX: #{@circleX}"
     s += " circleY #{@circleY}"
     s += " scale: #{@scale}"
     s += "\n"
@@ -135,40 +147,41 @@ class SVGTreeNode
   # @param {String} options.text the text to display on the node.
   # @param {Number} model.indent x-distance to translate per generation.
   # @param {Number} model.textDX x-offset of the text from 0 in the node-frame.
-  # @param {Number} model.textDY y-offset of the text from 0 in the node-frame.
+  # @param {Number} model.elementOffset y-offset of the element from node-0.
   # @param {Number} model.circleRadius radius of end circle.
-  # @param {Number} model.circleDY y-offset of circle from node-frame origin.
-  # @param {Number} model.nodeHeight dy by which to translate for each node.
   # @param {Number} model.animateDuration time to allow for animations.
   # @param {Bool} options.isHidden whether to display the node
   # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
-    @el = options.el
     @children = []
     model = options.parent ? options
     @name = options.text ? "Root"
     @indent = model.indent ? 40
-    @textDX = model.textDX ? 5
-    @textDY = model.textDY ? -10
+    @contentDX = model.contentDX ? 15
     @circleRadius = model.circleRadius ? 4
-    @circleDY = model.circleDY ? 0
-    @nodeHeight = model.nodeHeight ? 35
-    @flagpoleLength = @circleDY + @circleRadius
     @animateDuration = model.animateDuration ? 400
     @isHidden = options.isHidden ? false
     @scale = if @isHidden then "0 1" else "1 1"
     @emptyColor = model.emptyColor ? 'white'
     @treeColor = model.treeColor ? 'blue'
+    @marginTop = model.marginTop ? 20
+    @marginBottom = model.marginBottom ? 10
     @x = options.x ? 5
-    @y = options.y ? 40
+    @y = options.y ? 0
     if options.parent?
       @parent = options.parent
+      @el = options.el
     else
       @isRoot = true
+      @div = options.el
+      @el = @svgElement "svg"
+      @div.appendChild @el
+    @contentY = @y + @marginTop
+    @makeContentGroup()
+    @makeContent()
     @makeLine()
-    @makeText()
     if @isHidden and options.children?
-      @circleY = @y + @circleDY
+      @circleY = @y + @marginTop + @contentHeight() + @marginBottom
       @circleX = @indent
     if options.children?
       for child in options.children
@@ -194,8 +207,8 @@ class SVGTreeNode
     if options.isHidden
       options.y = @y
     else
-      options.y = @y + @numDescendants() * @nodeHeight
-    child = new SVGTreeNode options
+      options.y = @y + @flagpoleLength()
+    child = new @constructor options
     @children.push child
 
   # request gets passed up the chain, root calls update.
@@ -209,22 +222,40 @@ class SVGTreeNode
   # their current 'correct' location
   updatePosition: (callback=null) =>
     @updateChildren()
+    if not @parent?
+      n = @div.offsetHeight
+      if n < @totalHeight()
+        height = @totalHeight() + @contentHeight()
+        @div.style.height = height + 'px'
+        @el.style.height = height + 'px'
     @moveChildren()
     @move()
 
+  # Updates the position and form of the node.
   move: =>
     @animateLine()
-    @animateText()
+    @animateContent()
     @animateCircle()
     @animateVisible()
 
+  # Returns the height of the caller-supplied content in the node
+  # TODO: Currently returns after first node with height
+  #
+  # @return {Number}
+  contentHeight: =>
+    for node in @contentGroup.childNodes
+      if node.offsetHeight?
+        return node.offsetHeight
+      if node.height?
+        return node.height.baseVal.value
+
   # updates the position of all children.
   updateChildren: =>
-    descendants = 0
+    dY = @y + @marginTop + @contentHeight() + @marginBottom
     for child in @children
-      descendants += 1
-      @updateChild child, descendants
-      descendants += child.numDescendants()
+      child.y = if not child.isHidden then dY else @y
+      child.x = @x + @indent
+      dY += child.totalHeight()
 
   # Populates child with correct current values
   #
@@ -242,23 +273,34 @@ class SVGTreeNode
       callback()
     child.updatePosition(callback) for child in @children
 
+  # Returns the length of the 'flagpole' extending below the node. That
+  # is the part the children extend from.
+  #
+  # @return {Number}
+  flagpoleLength: =>
+    l = 0
+    for child in @children
+      if not child.isHidden
+        if child == @children[@children.length - 1]
+          l += child.marginTop + child.contentHeight() + child.marginBottom
+        else
+          l += child.totalHeight()
+    return l
+
+  # Returns the total height of the node, including all descendants.
+  # @return {Number}
+  totalHeight: =>
+    n = @marginTop + @contentHeight() + @marginBottom
+    n += child.totalHeight() for child in @visibleChildren()
+    return n
+
   # Returns the current coordinates to use for the polyline.
   # Sets priorLinePoints to the existing coordinates, if any.
   #
   # @return {String} svg polyline points string
   getLinePoints: =>
-    last = @children[@children.length - 1]
-    n = if last then last.numDescendants() else 0
-    @flagpoleLength = (@numDescendants() - n) * @nodeHeight
-    return "#{0} #{@y} #{@indent} #{@y} #{@indent} #{@y + @flagpoleLength}"
-
-  # Counts the descendants of this node
-  numDescendants: =>
-    n = 0
-    for c in @children
-      if not c.isHidden
-        n += c.numDescendants() + 1
-    return n
+    y = @y + @marginTop + @contentHeight() + @marginBottom
+    return "#{0} #{y} #{@indent} #{y} #{@indent} #{y + @flagpoleLength()}"
 
   # @return {DOM.SVGSVGElement} polyline
   makeLine:  =>
@@ -288,46 +330,24 @@ class SVGTreeNode
     )
     @linePoints = newPoints
 
-  # creates the textelement in the SVG displaying the node name.
-  #
-  # Note that assigning to innerHTML is not supported in SVG even on relatively
-  # recent browsers. It is safest to add text by using document.createTextNode.
-  #
-  # @return {DOM.SVGSVGElement} text node
-  makeText: =>
-    @textX = @textDX
-    @textY = @y + @textDY
-    @text = @svgElement "text", {
-      fill: "black",
-      x: @textDX,
-      y: @y + @textDY
-    }
-    @text.appendChild document.createTextNode @name
-    @text.addEventListener "click", @textClick
-    @el.appendChild @text
-
   # move the text to the correct position
   #
   # @param {Function} callback if given will be called on animation end
-  animateText: (callback=null) =>
-    if not @text?
-      if @isHidden
-        return
-      @makeText()
-    newY = @y + @textDY
+  animateContent: (callback=null) =>
+    newY = @y + @marginTop
     @animateElement(
-      {attributeName: 'y', to: newY, from: @textY}, @text, callback
+      {attributeName: 'y', to: newY, from: @contentY}, @content, callback
     )
-    @textY = newY
+    @contentY = newY
 
   # @return {DOM.SVGSVGElement} circle
   makeCircle: =>
     @circleX = @indent
-    @circleY ?= @y + @circleDY
+    @circleY ?= @y + @marginTop + @contentHeight() + @marginBottom
     @circle = @svgElement "circle", {
       fill: @treeColor,
       cx: @indent,
-      cy: @y + @circleDY,
+      cy: @circleY,
       r: @circleRadius,
       "stroke-width": "2px",
       stroke: @treeColor
@@ -344,7 +364,7 @@ class SVGTreeNode
         return
       else
         @makeCircle()
-    new_cy = @y + @circleDY
+    new_cy = @y + @marginTop + @contentHeight() + @marginBottom
     @animateElement(
       {attributeName: 'cy', to: new_cy, from: @circleY}, @circle, callback
     )
@@ -410,14 +430,31 @@ class SVGTreeNode
     @scale = newScale
     @animateElement spec, @el, callback
 
+  # The ContentGroup is an svg 'g' element that holds the content. This
+  # sets it up. Should be called before attempting to make the content.
+  makeContentGroup: =>
+    @contentX = 2 * @contentDX
+    transform_spec = transform: "translate(#{@contentX}, 0)"
+    @contentGroup = @svgElement "g", transform_spec
+    @el.appendChild @contentGroup
+
+module.SVGTreeNode = SVGTreeNode
+
+# First attempt at enforcing a nice-to-subclass API on
+# SVGTreeNode
+class BasicTree extends SVGTreeNode
+
+  # @param {Object} options see SVGTreeNode
+  constructor: (options) ->
+    super options
+    
   # using "click the circle" to test out a few behaviors I'll want later.
-  textClick: (evt) =>
+  contentClick: (evt) =>
     options = {}
     if @visibleChildren().length != @children.length
       options.isHidden = true
     @newChild(options)
-    if options.isHidden
-      @showChildren()
+    @showChildren()
   
   # demo show and hide callbacks
   circleClick: (evt) =>
@@ -426,6 +463,36 @@ class SVGTreeNode
     else
       @hideChildren()
 
-module.SVGTreeNode = SVGTreeNode
+  # creates the textelement in the SVG displaying the node name.
+  #
+  # Note that assigning to innerHTML is not supported in SVG even on relatively
+  # recent browsers. It is safest to add text by using document.createTextNode.
+  #
+  # @return {DOM.SVGSVGElement} text node
+  makeText: =>
+    @contentX = @contentDX
+    @contentY = @y + @marginTop
+    @content = @svgElement "text", {
+      fill: "black",
+      x: @contentDX,
+    }
+    @content.appendChild document.createTextNode @name
+    @content.addEventListener "click", @textClick
+    @el.appendChild @content
 
-module.drawSVG = drawSVG
+  # Creates the content for the tree node. Override this to add custom
+  # content.
+  makeContent: =>
+    div = @htmlElement 'div'
+    s = 'background: red; height: 40px; width: 60px;'
+    div.setAttribute 'style', s
+    div.innerHTML = @name
+    @content = @svgElement 'foreignObject'
+    @contentGroup.appendChild @content
+    @content.appendChild div
+    @content.setAttribute 'width', div.offsetWidth
+    @content.setAttribute 'height', div.offsetHeight
+    @content.setAttribute 'y', @contentY
+    @content.addEventListener "click", @contentClick
+
+module.BasicTree = BasicTree

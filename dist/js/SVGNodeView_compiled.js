@@ -1,6 +1,8 @@
 (function() {
-  var SVGTreeNode, exports, module, registerGlobal,
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var BasicTree, SVGTreeNode, exports, module, registerGlobal,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+    __hasProp = {}.hasOwnProperty,
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   exports = exports != null ? exports : this;
 
@@ -26,9 +28,21 @@
       if (attributes.version == null) {
         attributes.version = "1.1";
       }
-      if (attributes.xmlns == null) {
-        attributes.xmlns = "http://www.w3.org/2000/svg";
+      attributes.xmlns = "http://www.w3.org/2000/svg";
+      for (attr in attributes) {
+        value = attributes[attr];
+        el.setAttribute(attr, value);
       }
+      return el;
+    };
+
+    SVGTreeNode.prototype.htmlElement = function(tag, attributes) {
+      var attr, el, value;
+      if (attributes == null) {
+        attributes = {};
+      }
+      el = document.createElementNS("http://www.w3.org/1999/xhtml", tag);
+      attributes.xmlns = "http://www.w3.org/1999/xhtml";
       for (attr in attributes) {
         value = attributes[attr];
         el.setAttribute(attr, value);
@@ -165,8 +179,9 @@
     SVGTreeNode.prototype.toString = function() {
       var child, line, ret, s, _i, _j, _len, _len1, _ref, _ref1;
       s = "name: " + this.name + "\n isHidden: " + this.isHidden + " x: " + this.x + " y: " + this.y;
-      s += " textDX: " + this.textDX + " textDY: " + this.textDY + " textX: " + this.textX;
-      s += " textY: " + this.textY + " linePoints: " + this.linePoints + " circleX: " + this.circleX;
+      s += " contentDX: " + this.contentDX + " contentOffset: " + (this.marginBottom()) + " ";
+      s += "contentX: " + this.contentX;
+      s += " textY: " + this.contentY + " linePoints: " + this.linePoints + " circleX: " + this.circleX;
       s += " circleY " + this.circleY;
       s += " scale: " + this.scale;
       s += "\n";
@@ -185,8 +200,7 @@
     };
 
     function SVGTreeNode(options) {
-      this.circleClick = __bind(this.circleClick, this);
-      this.textClick = __bind(this.textClick, this);
+      this.makeContentGroup = __bind(this.makeContentGroup, this);
       this.animateVisible = __bind(this.animateVisible, this);
       this.visibleChildren = __bind(this.visibleChildren, this);
       this.hide = __bind(this.hide, this);
@@ -194,55 +208,59 @@
       this.showChildren = __bind(this.showChildren, this);
       this.animateCircle = __bind(this.animateCircle, this);
       this.makeCircle = __bind(this.makeCircle, this);
-      this.animateText = __bind(this.animateText, this);
-      this.makeText = __bind(this.makeText, this);
+      this.animateContent = __bind(this.animateContent, this);
       this.animateLine = __bind(this.animateLine, this);
       this.makeLine = __bind(this.makeLine, this);
-      this.numDescendants = __bind(this.numDescendants, this);
       this.getLinePoints = __bind(this.getLinePoints, this);
+      this.totalHeight = __bind(this.totalHeight, this);
+      this.flagpoleLength = __bind(this.flagpoleLength, this);
       this.moveChildren = __bind(this.moveChildren, this);
       this.updateChild = __bind(this.updateChild, this);
       this.updateChildren = __bind(this.updateChildren, this);
+      this.contentHeight = __bind(this.contentHeight, this);
       this.move = __bind(this.move, this);
       this.updatePosition = __bind(this.updatePosition, this);
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
       this.animateElement = __bind(this.animateElement, this);
-      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
-      this.el = options.el;
+      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
       this.name = (_ref1 = options.text) != null ? _ref1 : "Root";
       this.indent = (_ref2 = model.indent) != null ? _ref2 : 40;
-      this.textDX = (_ref3 = model.textDX) != null ? _ref3 : 5;
-      this.textDY = (_ref4 = model.textDY) != null ? _ref4 : -10;
-      this.circleRadius = (_ref5 = model.circleRadius) != null ? _ref5 : 4;
-      this.circleDY = (_ref6 = model.circleDY) != null ? _ref6 : 0;
-      this.nodeHeight = (_ref7 = model.nodeHeight) != null ? _ref7 : 35;
-      this.flagpoleLength = this.circleDY + this.circleRadius;
-      this.animateDuration = (_ref8 = model.animateDuration) != null ? _ref8 : 400;
-      this.isHidden = (_ref9 = options.isHidden) != null ? _ref9 : false;
+      this.contentDX = (_ref3 = model.contentDX) != null ? _ref3 : 15;
+      this.circleRadius = (_ref4 = model.circleRadius) != null ? _ref4 : 4;
+      this.animateDuration = (_ref5 = model.animateDuration) != null ? _ref5 : 400;
+      this.isHidden = (_ref6 = options.isHidden) != null ? _ref6 : false;
       this.scale = this.isHidden ? "0 1" : "1 1";
-      this.emptyColor = (_ref10 = model.emptyColor) != null ? _ref10 : 'white';
-      this.treeColor = (_ref11 = model.treeColor) != null ? _ref11 : 'blue';
-      this.x = (_ref12 = options.x) != null ? _ref12 : 5;
-      this.y = (_ref13 = options.y) != null ? _ref13 : 40;
+      this.emptyColor = (_ref7 = model.emptyColor) != null ? _ref7 : 'white';
+      this.treeColor = (_ref8 = model.treeColor) != null ? _ref8 : 'blue';
+      this.marginTop = (_ref9 = model.marginTop) != null ? _ref9 : 20;
+      this.marginBottom = (_ref10 = model.marginBottom) != null ? _ref10 : 10;
+      this.x = (_ref11 = options.x) != null ? _ref11 : 5;
+      this.y = (_ref12 = options.y) != null ? _ref12 : 0;
       if (options.parent != null) {
         this.parent = options.parent;
+        this.el = options.el;
       } else {
         this.isRoot = true;
+        this.div = options.el;
+        this.el = this.svgElement("svg");
+        this.div.appendChild(this.el);
       }
+      this.contentY = this.y + this.marginTop;
+      this.makeContentGroup();
+      this.makeContent();
       this.makeLine();
-      this.makeText();
       if (this.isHidden && (options.children != null)) {
-        this.circleY = this.y + this.circleDY;
+        this.circleY = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
         this.circleX = this.indent;
       }
       if (options.children != null) {
-        _ref14 = options.children;
-        for (_i = 0, _len = _ref14.length; _i < _len; _i++) {
-          child = _ref14[_i];
+        _ref13 = options.children;
+        for (_i = 0, _len = _ref13.length; _i < _len; _i++) {
+          child = _ref13[_i];
           child.isHidden = true;
           this.newChild(child);
         }
@@ -277,9 +295,9 @@
       if (options.isHidden) {
         options.y = this.y;
       } else {
-        options.y = this.y + this.numDescendants() * this.nodeHeight;
+        options.y = this.y + this.flagpoleLength();
       }
-      child = new SVGTreeNode(options);
+      child = new this.constructor(options);
       return this.children.push(child);
     };
 
@@ -292,31 +310,54 @@
     };
 
     SVGTreeNode.prototype.updatePosition = function(callback) {
+      var height, n;
       if (callback == null) {
         callback = null;
       }
       this.updateChildren();
+      if (this.parent == null) {
+        n = this.div.offsetHeight;
+        if (n < this.totalHeight()) {
+          height = this.totalHeight() + this.contentHeight();
+          this.div.style.height = height + 'px';
+          this.el.style.height = height + 'px';
+        }
+      }
       this.moveChildren();
       return this.move();
     };
 
     SVGTreeNode.prototype.move = function() {
       this.animateLine();
-      this.animateText();
+      this.animateContent();
       this.animateCircle();
       return this.animateVisible();
     };
 
+    SVGTreeNode.prototype.contentHeight = function() {
+      var node, _i, _len, _ref;
+      _ref = this.contentGroup.childNodes;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        node = _ref[_i];
+        if (node.offsetHeight != null) {
+          return node.offsetHeight;
+        }
+        if (node.height != null) {
+          return node.height.baseVal.value;
+        }
+      }
+    };
+
     SVGTreeNode.prototype.updateChildren = function() {
-      var child, descendants, _i, _len, _ref, _results;
-      descendants = 0;
+      var child, dY, _i, _len, _ref, _results;
+      dY = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
       _ref = this.children;
       _results = [];
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         child = _ref[_i];
-        descendants += 1;
-        this.updateChild(child, descendants);
-        _results.push(descendants += child.numDescendants());
+        child.y = !child.isHidden ? dY : this.y;
+        child.x = this.x + this.indent;
+        _results.push(dY += child.totalHeight());
       }
       return _results;
     };
@@ -343,25 +384,38 @@
       return _results;
     };
 
-    SVGTreeNode.prototype.getLinePoints = function() {
-      var last, n;
-      last = this.children[this.children.length - 1];
-      n = last ? last.numDescendants() : 0;
-      this.flagpoleLength = (this.numDescendants() - n) * this.nodeHeight;
-      return "" + 0 + " " + this.y + " " + this.indent + " " + this.y + " " + this.indent + " " + (this.y + this.flagpoleLength);
-    };
-
-    SVGTreeNode.prototype.numDescendants = function() {
-      var c, n, _i, _len, _ref;
-      n = 0;
+    SVGTreeNode.prototype.flagpoleLength = function() {
+      var child, l, _i, _len, _ref;
+      l = 0;
       _ref = this.children;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        c = _ref[_i];
-        if (!c.isHidden) {
-          n += c.numDescendants() + 1;
+        child = _ref[_i];
+        if (!child.isHidden) {
+          if (child === this.children[this.children.length - 1]) {
+            l += child.marginTop + child.contentHeight() + child.marginBottom;
+          } else {
+            l += child.totalHeight();
+          }
         }
       }
+      return l;
+    };
+
+    SVGTreeNode.prototype.totalHeight = function() {
+      var child, n, _i, _len, _ref;
+      n = this.marginTop + this.contentHeight() + this.marginBottom;
+      _ref = this.visibleChildren();
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        child = _ref[_i];
+        n += child.totalHeight();
+      }
       return n;
+    };
+
+    SVGTreeNode.prototype.getLinePoints = function() {
+      var y;
+      y = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
+      return "" + 0 + " " + y + " " + this.indent + " " + y + " " + this.indent + " " + (y + this.flagpoleLength());
     };
 
     SVGTreeNode.prototype.makeLine = function() {
@@ -396,48 +450,29 @@
       return this.linePoints = newPoints;
     };
 
-    SVGTreeNode.prototype.makeText = function() {
-      this.textX = this.textDX;
-      this.textY = this.y + this.textDY;
-      this.text = this.svgElement("text", {
-        fill: "black",
-        x: this.textDX,
-        y: this.y + this.textDY
-      });
-      this.text.appendChild(document.createTextNode(this.name));
-      this.text.addEventListener("click", this.textClick);
-      return this.el.appendChild(this.text);
-    };
-
-    SVGTreeNode.prototype.animateText = function(callback) {
+    SVGTreeNode.prototype.animateContent = function(callback) {
       var newY;
       if (callback == null) {
         callback = null;
       }
-      if (this.text == null) {
-        if (this.isHidden) {
-          return;
-        }
-        this.makeText();
-      }
-      newY = this.y + this.textDY;
+      newY = this.y + this.marginTop;
       this.animateElement({
         attributeName: 'y',
         to: newY,
-        from: this.textY
-      }, this.text, callback);
-      return this.textY = newY;
+        from: this.contentY
+      }, this.content, callback);
+      return this.contentY = newY;
     };
 
     SVGTreeNode.prototype.makeCircle = function() {
       this.circleX = this.indent;
       if (this.circleY == null) {
-        this.circleY = this.y + this.circleDY;
+        this.circleY = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
       }
       this.circle = this.svgElement("circle", {
         fill: this.treeColor,
         cx: this.indent,
-        cy: this.y + this.circleDY,
+        cy: this.circleY,
         r: this.circleRadius,
         "stroke-width": "2px",
         stroke: this.treeColor
@@ -458,7 +493,7 @@
           this.makeCircle();
         }
       }
-      new_cy = this.y + this.circleDY;
+      new_cy = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
       this.animateElement({
         attributeName: 'cy',
         to: new_cy,
@@ -562,24 +597,14 @@
       return this.animateElement(spec, this.el, callback);
     };
 
-    SVGTreeNode.prototype.textClick = function(evt) {
-      var options;
-      options = {};
-      if (this.visibleChildren().length !== this.children.length) {
-        options.isHidden = true;
-      }
-      this.newChild(options);
-      if (options.isHidden) {
-        return this.showChildren();
-      }
-    };
-
-    SVGTreeNode.prototype.circleClick = function(evt) {
-      if (this.visibleChildren().length !== this.children.length) {
-        return this.showChildren();
-      } else {
-        return this.hideChildren();
-      }
+    SVGTreeNode.prototype.makeContentGroup = function() {
+      var transform_spec;
+      this.contentX = 2 * this.contentDX;
+      transform_spec = {
+        transform: "translate(" + this.contentX + ", 0)"
+      };
+      this.contentGroup = this.svgElement("g", transform_spec);
+      return this.el.appendChild(this.contentGroup);
     };
 
     return SVGTreeNode;
@@ -588,6 +613,66 @@
 
   module.SVGTreeNode = SVGTreeNode;
 
-  module.drawSVG = drawSVG;
+  BasicTree = (function(_super) {
+    __extends(BasicTree, _super);
+
+    function BasicTree(options) {
+      this.makeContent = __bind(this.makeContent, this);
+      this.makeText = __bind(this.makeText, this);
+      this.circleClick = __bind(this.circleClick, this);
+      this.contentClick = __bind(this.contentClick, this);
+      BasicTree.__super__.constructor.call(this, options);
+    }
+
+    BasicTree.prototype.contentClick = function(evt) {
+      var options;
+      options = {};
+      if (this.visibleChildren().length !== this.children.length) {
+        options.isHidden = true;
+      }
+      this.newChild(options);
+      return this.showChildren();
+    };
+
+    BasicTree.prototype.circleClick = function(evt) {
+      if (this.visibleChildren().length !== this.children.length) {
+        return this.showChildren();
+      } else {
+        return this.hideChildren();
+      }
+    };
+
+    BasicTree.prototype.makeText = function() {
+      this.contentX = this.contentDX;
+      this.contentY = this.y + this.marginTop;
+      this.content = this.svgElement("text", {
+        fill: "black",
+        x: this.contentDX
+      });
+      this.content.appendChild(document.createTextNode(this.name));
+      this.content.addEventListener("click", this.textClick);
+      return this.el.appendChild(this.content);
+    };
+
+    BasicTree.prototype.makeContent = function() {
+      var div, s;
+      div = this.htmlElement('div');
+      s = 'background: red; height: 40px; width: 60px;';
+      div.setAttribute('style', s);
+      div.innerHTML = this.name;
+      this.content = this.svgElement('foreignObject');
+      this.contentGroup.appendChild(this.content);
+      this.content.appendChild(div);
+      this.content.setAttribute('width', div.offsetWidth);
+      this.content.setAttribute('height', div.offsetHeight);
+      this.content.setAttribute('y', this.contentY);
+      return this.content.addEventListener("click", this.contentClick);
+    };
+
+    return BasicTree;
+
+  })(SVGTreeNode);
+
+  module.BasicTree = BasicTree;
 
 }).call(this);
