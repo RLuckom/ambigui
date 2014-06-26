@@ -92,29 +92,27 @@ class SVGTreeNode
   # @param {Function} callback if given, will be executed after animation
   animateElement: (spec, parentElement, callback=null) =>
     duration = @animateDuration
-    if spec.attributeName in ['y', 'cy']
+    if spec.attributeName in ['y', 'cy', 'height']
       formatter = (x) -> "#{x}px"
       @animation(
         parentElement, spec.attributeName, spec.from,
-        spec.to, 20, duration, formatter, callback
+        spec.to, @frameLength, duration, formatter, callback
       )()
     if spec.attributeName == 'points'
       from = (parseInt(x) for x in spec.from.split ' ')
       to = (parseInt(x) for x in spec.to.split ' ')
-      formatter = (x) ->
-        x.join ' '
+      formatter = (x) -> x.join ' '
       @animation(
         parentElement, spec.attributeName, from,
-        to, 20, duration, formatter, callback
+        to, @frameLength, duration, formatter, callback
       )()
     if spec.attributeName == 'transform'
       from = (parseInt(x) for x in spec.from.split ' ')
       to = (parseInt(x) for x in spec.to.split ' ')
-      formatter = (x) ->
-        "#{spec.type}(#{x.join ' '})"
+      formatter = (x) -> "#{spec.type}(#{x.join ' '})"
       @animation(
         parentElement, spec.attributeName, from,
-        to, 20, duration, formatter, callback
+        to, @frameLength, duration, formatter, callback
       )()
 
   # returns data about the tree
@@ -166,6 +164,8 @@ class SVGTreeNode
     @treeColor = model.treeColor ? 'blue'
     @marginTop = model.marginTop ? 20
     @marginBottom = model.marginBottom ? 10
+    @frameLength = model.frameLength ? 20
+    @outerFramePaddingBottom = model.outerFramePaddingBottom ? 20
     @x = options.x ? 5
     @y = options.y ? 0
     if options.parent?
@@ -223,13 +223,22 @@ class SVGTreeNode
   updatePosition: (callback=null) =>
     @updateChildren()
     if not @parent?
-      n = @div.offsetHeight
-      if n < @totalHeight()
-        height = @totalHeight() + @contentHeight()
-        @div.style.height = height + 'px'
-        @el.style.height = height + 'px'
+      @updateOuterFrame()
     @moveChildren()
     @move()
+
+  updateOuterFrame: =>
+    n = @div.offsetHeight
+    if n != @totalHeight() + @contentHeight() + @outerFramePaddingBottom
+      height = @totalHeight() + @contentHeight() + @outerFramePaddingBottom
+      @animateElement(
+        {attributeName: 'height', from: n, to: height},
+        @div,
+      )
+      @animateElement(
+        {attributeName: 'height', from: n, to: height},
+        @el,
+      )
 
   # Updates the position and form of the node.
   move: =>
