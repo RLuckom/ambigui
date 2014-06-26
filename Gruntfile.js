@@ -55,8 +55,9 @@ module.exports = function(grunt) {
                 options: {
                     join: true,
                 },
-		files: {'dist/js/SVGNodeView_compiled.js': ['coffee/registerGlobal.coffee',
-			                                    'coffee/SVGNodeView.coffee']
+		files: {'dist/js/DOGWOOD_compiled.js': ['coffee/registerGlobal.coffee',
+			                                'coffee/SVGTreeNode.coffee',
+							'coffee/DivTreeNode.coffee']
                 }
             }
         },

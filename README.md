@@ -15,7 +15,7 @@ Dependency Fatigue. So I decided to make one for myself.
 There's a [demo](https://rluckom.github.io/ambigui#DOGWOOD) but I'm definitely 
 not finished yet. Upcoming improvements, in vague order of priority:
 
+ * Add a convenient interface for binding callbacks and data to nodes.
  * Decide on and support a way of scrolling the window onto the tree.
    * I really like the mini-doc-view in SublimeText, maybe something like that.
- * Add a convenient interface for binding callbacks and data to nodes.
  * Support keyboard nav.
