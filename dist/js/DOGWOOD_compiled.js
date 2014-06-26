@@ -116,11 +116,11 @@
         callback = null;
       }
       duration = this.animateDuration;
-      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy') {
+      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy' || _ref === 'height') {
         formatter = function(x) {
           return "" + x + "px";
         };
-        this.animation(parentElement, spec.attributeName, spec.from, spec.to, 20, duration, formatter, callback)();
+        this.animation(parentElement, spec.attributeName, spec.from, spec.to, this.frameLength, duration, formatter, callback)();
       }
       if (spec.attributeName === 'points') {
         from = (function() {
@@ -146,7 +146,7 @@
         formatter = function(x) {
           return x.join(' ');
         };
-        this.animation(parentElement, spec.attributeName, from, to, 20, duration, formatter, callback)();
+        this.animation(parentElement, spec.attributeName, from, to, this.frameLength, duration, formatter, callback)();
       }
       if (spec.attributeName === 'transform') {
         from = (function() {
@@ -172,7 +172,7 @@
         formatter = function(x) {
           return "" + spec.type + "(" + (x.join(' ')) + ")";
         };
-        return this.animation(parentElement, spec.attributeName, from, to, 20, duration, formatter, callback)();
+        return this.animation(parentElement, spec.attributeName, from, to, this.frameLength, duration, formatter, callback)();
       }
     };
 
@@ -219,12 +219,13 @@
       this.updateChildren = __bind(this.updateChildren, this);
       this.contentHeight = __bind(this.contentHeight, this);
       this.move = __bind(this.move, this);
+      this.updateOuterFrame = __bind(this.updateOuterFrame, this);
       this.updatePosition = __bind(this.updatePosition, this);
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
       this.animateElement = __bind(this.animateElement, this);
-      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
       this.name = (_ref1 = options.text) != null ? _ref1 : "Root";
@@ -238,8 +239,10 @@
       this.treeColor = (_ref8 = model.treeColor) != null ? _ref8 : 'blue';
       this.marginTop = (_ref9 = model.marginTop) != null ? _ref9 : 20;
       this.marginBottom = (_ref10 = model.marginBottom) != null ? _ref10 : 10;
-      this.x = (_ref11 = options.x) != null ? _ref11 : 5;
-      this.y = (_ref12 = options.y) != null ? _ref12 : 0;
+      this.frameLength = (_ref11 = model.frameLength) != null ? _ref11 : 20;
+      this.outerFramePaddingBottom = (_ref12 = model.outerFramePaddingBottom) != null ? _ref12 : 20;
+      this.x = (_ref13 = options.x) != null ? _ref13 : 5;
+      this.y = (_ref14 = options.y) != null ? _ref14 : 0;
       if (options.parent != null) {
         this.parent = options.parent;
         this.el = options.el;
@@ -258,9 +261,9 @@
         this.circleX = this.indent;
       }
       if (options.children != null) {
-        _ref13 = options.children;
-        for (_i = 0, _len = _ref13.length; _i < _len; _i++) {
-          child = _ref13[_i];
+        _ref15 = options.children;
+        for (_i = 0, _len = _ref15.length; _i < _len; _i++) {
+          child = _ref15[_i];
           child.isHidden = true;
           this.newChild(child);
         }
@@ -310,21 +313,33 @@
     };
 
     SVGTreeNode.prototype.updatePosition = function(callback) {
-      var height, n;
       if (callback == null) {
         callback = null;
       }
       this.updateChildren();
       if (this.parent == null) {
-        n = this.div.offsetHeight;
-        if (n < this.totalHeight()) {
-          height = this.totalHeight() + this.contentHeight();
-          this.div.style.height = height + 'px';
-          this.el.style.height = height + 'px';
-        }
+        this.updateOuterFrame();
       }
       this.moveChildren();
       return this.move();
+    };
+
+    SVGTreeNode.prototype.updateOuterFrame = function() {
+      var height, n;
+      n = this.div.offsetHeight;
+      if (n !== this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom) {
+        height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
+        this.animateElement({
+          attributeName: 'height',
+          from: n,
+          to: height
+        }, this.div);
+        return this.animateElement({
+          attributeName: 'height',
+          from: n,
+          to: height
+        }, this.el);
+      }
     };
 
     SVGTreeNode.prototype.move = function() {
