@@ -12,18 +12,12 @@
     </head>
     <body>
         <div class="site">
-          <div class="header">
-            <h1 class="title"><a href="github.com/rluckom/ambigui">ambigui</a></h1>
-            <a href="https://github.com/RLuckom/ambigui/zipball/master" id="download-zip" class="extra"><span>Download .zip</span></a>
-            <a href="https://github.com/RLuckom/ambigui/tarball/master" id="download-tar-gz" class="extra"><span>Download .tar.gz</span></a>
-            <a href="https://github.com/RLuckom/ambigui" id="view-on-github" class="extra"><span>View on GitHub</span></a>
-          </div>
-
+        <div id="svgDiv"></div>
           <a name="DOGWOOD"></a>
           <h2>DOGWOOD</h2>
 <p class="meta">10 June 2014</p>
-        <p>DOGWOOD is an SVG-based tree UI. In this demo, click on the 
-        red divs in the tree to add child nodes. Nodes with children have blue circles. Click on the blue circle of a node to toggle its
+        <p>DOGWOOD is an SVG-based tree UI. In this demo, the navigation menu at the top is a DOGWOOD.MenuTree. 
+        Nodes with children have blue circles. Click on the blue circle or text of a non-link node to toggle its
         childrens' visibility.</p>
         <script>
             window.onload = function() {
@@ -36,7 +30,7 @@
                 contentDX: 10,
                 children: [
                  {text: 'View On Github', link: "https://github.com/RLuckom/ambigui", "class": "nav-link"},
-                  {text: 'DOGWOOD Source Code',
+                  {text: 'Source Code Downloads',
                    'class': 'nav-text',
                    children: [
                      {text: 'Download .zip', link:"https://github.com/RLuckom/ambigui/zipball/master", "class": "nav-link"},
@@ -45,7 +39,6 @@
               });
             }
         </script>
-        <div id="svgDiv"></div>
      </div>
      <footer>
          <p class="meta"><a href="github.com/rluckom/ambigui"><b>ambigui</b></a>
