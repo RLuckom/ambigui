@@ -77,6 +77,32 @@ a:visited { color: #a0a; }
   color: #a00;
 }
 
+.nav-red {
+  font-weight: bold;
+  text-align: left;
+  color: #a00;
+  margin: 0px;
+  padding: 0px;
+}
+
+.nav-text {
+  text-align: left;
+  font-weight: bold;
+  color: #888;
+  margin: 0px;
+  padding: 0px;
+}
+
+.nav-link {
+  color: #118;
+  text-decoration: none;
+  text-align: left;
+  font-weight: bold;
+  margin: 0px;
+  padding: 0px;
+}
+
+
 .title a:hover {
   color: #000;
 }

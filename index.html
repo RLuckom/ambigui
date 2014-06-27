@@ -28,27 +28,25 @@
         <script>
             window.onload = function() {
               d = document.getElementById("svgDiv");
-              x = new DOGWOOD.BasicTree({
+              x = new DOGWOOD.MenuTree({
                 el: d,
-                text: 'Errands',
+                indent: 20,
+                text: 'ambigui',
+                'class': 'nav-red',
+                contentDX: 10,
                 children: [
-                  {text: 'Grocery List',
-                  children: [
-                    {text: 'bread'},
-                    {text: 'milk'},
-                    {text: 'eggs'},
-                  ]},
-                  {text: "Hardware Store",
-                  children: [
-                    {text: "Hammer"},
-                    {text: "Another Hammer"}
-                  ]}
-                ]
+                 {text: 'View On Github', link: "https://github.com/RLuckom/ambigui", "class": "nav-link"},
+                  {text: 'DOGWOOD Source Code',
+                   'class': 'nav-text',
+                   children: [
+                     {text: 'Download .zip', link:"https://github.com/RLuckom/ambigui/zipball/master", "class": "nav-link"},
+                     {text: "Download .tar.gz", link:"https://github.com/RLuckom/ambigui/tarball/master", "class": "nav-link"},
+                  ]}],
               });
             }
-
         </script>
-        <div id="svgDiv" ></div>
+        <div id="svgDiv"></div>
+     </div>
      <footer>
          <p class="meta"><a href="github.com/rluckom/ambigui"><b>ambigui</b></a>
             is a parent project for composable, dependency-free UI elements that do exactly what I want.
