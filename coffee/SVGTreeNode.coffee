@@ -92,7 +92,7 @@ class SVGTreeNode
   # @param {Function} callback if given, will be executed after animation
   animateElement: (spec, parentElement, callback=null) =>
     duration = @animateDuration
-    if spec.attributeName in ['y', 'cy', 'height']
+    if spec.attributeName in ['y', 'cy', 'height', 'y1', 'y2']
       formatter = (x) -> "#{x}px"
       @animation(
         parentElement, spec.attributeName, spec.from,
@@ -141,6 +141,9 @@ class SVGTreeNode
   # text is above the line.
   #
   # @param {Object} options
+  # @param {Bool} options.isHidden whether to display the node
+  # @param {Number} options.x x-coord
+  # @param {Number} options.y y-coord
   # @param {SVGTreeNode} options.parent If provided, used to populate members.
   # @param {String} options.text the text to display on the node.
   # @param {Number} model.indent x-distance to translate per generation.
@@ -148,7 +151,10 @@ class SVGTreeNode
   # @param {Number} model.elementOffset y-offset of the element from node-0.
   # @param {Number} model.circleRadius radius of end circle.
   # @param {Number} model.animateDuration time to allow for animations.
-  # @param {Bool} options.isHidden whether to display the node
+  # @param {number} model.lineWidth width of lines
+  # @param {Bool} model.newStar Whether to use a star to create children
+  # @param {Number} model.starLength drop distance of star
+  # @param {Number} model.starRadius redius of star
   # @param {String} model.treeColor color for circle when children are shown
   constructor: (options) ->
     @children = []
@@ -161,10 +167,14 @@ class SVGTreeNode
     @isHidden = options.isHidden ? false
     @scale = if @isHidden then "0 1" else "1 1"
     @emptyColor = model.emptyColor ? 'white'
-    @treeColor = model.treeColor ? 'blue'
+    @treeColor = model.treeColor ? 'slateblue'
     @marginTop = model.marginTop ? 20
     @marginBottom = model.marginBottom ? 10
     @frameLength = model.frameLength ? 20
+    @newStar = model.newStar ? false
+    @lineWidth = model.lineWidth ? 2
+    @starLength = if @newStar then model.starLength ? 15 else 0
+    @starRadius = if @newStar then model.starRadius ? 5 else 0
     @outerFramePaddingBottom = model.outerFramePaddingBottom ? 20
     @x = options.x ? 5
     @y = options.y ? 0
@@ -180,6 +190,8 @@ class SVGTreeNode
     @makeContentGroup()
     @makeContent()
     @makeLine()
+    if @newStar
+      @makeStar()
     if @isHidden and options.children?
       @circleY = @y + @marginTop + @contentHeight() + @marginBottom
       @circleX = @indent
@@ -227,6 +239,8 @@ class SVGTreeNode
     @moveChildren()
     @move()
 
+  # Updates the height of the frame containing the tree based on how
+  # much space the tree needs.
   updateOuterFrame: =>
     n = @div.offsetHeight
     if n != @totalHeight() + @contentHeight() + @outerFramePaddingBottom
@@ -242,6 +256,8 @@ class SVGTreeNode
 
   # Updates the position and form of the node.
   move: =>
+    if @newStar
+      @animateStar()
     @animateLine()
     @animateContent()
     @animateCircle()
@@ -265,14 +281,6 @@ class SVGTreeNode
       child.y = if not child.isHidden then dY else @y
       child.x = @x + @indent
       dY += child.totalHeight()
-
-  # Populates child with correct current values
-  #
-  # @param {SVGTreeNode} child
-  # @param {Number} index index of child in this.children
-  updateChild: (child, index) =>
-    child.x = @x + @indent
-    child.y = if not child.isHidden then @y + @nodeHeight * index else @y
 
   # recursively updates the position of all descendent elements
   #
@@ -299,7 +307,7 @@ class SVGTreeNode
   # Returns the total height of the node, including all descendants.
   # @return {Number}
   totalHeight: =>
-    n = @marginTop + @contentHeight() + @marginBottom
+    n = @marginTop + @contentHeight() + @marginBottom + @starLength
     n += child.totalHeight() for child in @visibleChildren()
     return n
 
@@ -317,11 +325,79 @@ class SVGTreeNode
     @line = @svgElement "polyline",  {
       fill: "none",
       points: @linePoints,
-      'stroke-width': "2px",
+      'stroke-width': "#{@lineWidth}px",
       stroke: @treeColor
     }
     @el.appendChild @line
 
+  # @return {Object} current x1, y1, x2, y2 for line to star
+  getStarLinePoints: =>
+    top = (@y + @flagpoleLength() +
+      + @marginTop + @contentHeight() + @marginBottom)
+    {x1: @indent, y1: top, x2: @indent, y2: top + @starLength}
+
+  # Assembles the star, appends to @el. binds createChild
+  makeStar: =>
+    @starLinePoints = @getStarLinePoints()
+    @starLinePoints.fill = "none"
+    @starLinePoints.stroke = @treeColor
+    @starLinePoints['stroke-width'] = "#{@lineWidth}px"
+    @starLine = @svgElement "line", @starLinePoints
+    @el.appendChild @starLine
+    @star = @svgElement('g', {
+      transform: "translate(#{@indent}, #{@starLinePoints.y2})"
+    })
+    diff = Math.sqrt @starRadius * @starRadius / 2
+    diag1 = {
+      x1: -diff, y1: diff, x2: diff, y2:-diff,
+      fill:"none", "stroke-width": "#{@lineWidth / 2}px", 'stroke': @treeColor
+    }
+    @star.appendChild @svgElement 'line', diag1
+    diag2 = {
+      x1: -diff, y1: -diff, x2: diff, y2:diff,
+      fill:"none", "stroke-width": "#{@lineWidth / 2}px", 'stroke': @treeColor
+    }
+    @star.appendChild @svgElement 'line', diag2
+    cross1 = {
+      x1: @starRadius, y1: 0, x2: -@starRadius, y2:0,
+      fill:"none", "stroke-width": "#{@lineWidth / 2}px", 'stroke': @treeColor
+    }
+    @star.appendChild @svgElement 'line', cross1
+    cross2 = {
+      x1: 0, y1: @starRadius, x2: 0, y2: -@starRadius,
+      fill:"none", "stroke-width": "#{@lineWidth / 2}px", 'stroke': @treeColor
+    }
+    @star.appendChild @svgElement 'line', cross2
+    c =  {cx: 0, cy: 0, r: @starRadius, opacity: 0}
+    @star.appendChild @svgElement "circle", c
+    @star.addEventListener "click", @createChild
+    @el.appendChild @star
+    
+  # Moves the starLine and star to the current correct position
+  animateStar: (callback=null) =>
+    if not @starLine?
+      if @isHidden
+        @starLinePoints = @getStarLinePoints()
+        return
+      @makeStar()
+    newStarLinePoints = @getStarLinePoints()
+    @animateElement(
+      {attributeName: 'y1', from: @starLinePoints.y1, to: newStarLinePoints.y1},
+      @starLine, callback
+    )
+    @animateElement(
+      {attributeName: 'y2', from: @starLinePoints.y2, to: newStarLinePoints.y2},
+      @starLine, null
+    )
+    n = {
+      attributeName: 'transform'
+      from: "#{@indent} #{@starLinePoints.y2}"
+      to: "#{@indent} #{newStarLinePoints.y2}"
+      type: "translate"
+    }
+    @animateElement n, @star, null
+    @starLinePoints = newStarLinePoints
+      
   # move the line to the correct position
   #
   # @param {Function} callback if given will be called on animation end
@@ -358,10 +434,10 @@ class SVGTreeNode
       cx: @indent,
       cy: @circleY,
       r: @circleRadius,
-      "stroke-width": "2px",
+      "stroke-width": "#{@lineWidth}px",
       stroke: @treeColor
     }
-    @circle.addEventListener "click", @circleClick
+    @circle.addEventListener "click", @toggleChildrenVisible
     @el.appendChild @circle
 
   # move the circle to the correct position
@@ -446,5 +522,12 @@ class SVGTreeNode
     transform_spec = transform: "translate(#{@contentX}, 0)"
     @contentGroup = @svgElement "g", transform_spec
     @el.appendChild @contentGroup
+  
+  # show and hide callbacks
+  toggleChildrenVisible: (evt) =>
+    if @visibleChildren().length != @children.length
+      @showChildren()
+    else
+      @hideChildren()
 
 module.SVGTreeNode = SVGTreeNode

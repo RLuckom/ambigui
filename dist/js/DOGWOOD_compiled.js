@@ -1,5 +1,5 @@
 (function() {
-  var BasicTree, SVGTreeNode, exports, module, registerGlobal,
+  var BasicTree, MenuTree, SVGTreeNode, exports, module, registerGlobal,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -116,7 +116,7 @@
         callback = null;
       }
       duration = this.animateDuration;
-      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy' || _ref === 'height') {
+      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy' || _ref === 'height' || _ref === 'y1' || _ref === 'y2') {
         formatter = function(x) {
           return "" + x + "px";
         };
@@ -200,6 +200,7 @@
     };
 
     function SVGTreeNode(options) {
+      this.toggleChildrenVisible = __bind(this.toggleChildrenVisible, this);
       this.makeContentGroup = __bind(this.makeContentGroup, this);
       this.animateVisible = __bind(this.animateVisible, this);
       this.visibleChildren = __bind(this.visibleChildren, this);
@@ -210,12 +211,14 @@
       this.makeCircle = __bind(this.makeCircle, this);
       this.animateContent = __bind(this.animateContent, this);
       this.animateLine = __bind(this.animateLine, this);
+      this.animateStar = __bind(this.animateStar, this);
+      this.makeStar = __bind(this.makeStar, this);
+      this.getStarLinePoints = __bind(this.getStarLinePoints, this);
       this.makeLine = __bind(this.makeLine, this);
       this.getLinePoints = __bind(this.getLinePoints, this);
       this.totalHeight = __bind(this.totalHeight, this);
       this.flagpoleLength = __bind(this.flagpoleLength, this);
       this.moveChildren = __bind(this.moveChildren, this);
-      this.updateChild = __bind(this.updateChild, this);
       this.updateChildren = __bind(this.updateChildren, this);
       this.contentHeight = __bind(this.contentHeight, this);
       this.move = __bind(this.move, this);
@@ -225,7 +228,7 @@
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
       this.animateElement = __bind(this.animateElement, this);
-      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref17, _ref18, _ref19, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
       this.name = (_ref1 = options.text) != null ? _ref1 : "Root";
@@ -236,13 +239,17 @@
       this.isHidden = (_ref6 = options.isHidden) != null ? _ref6 : false;
       this.scale = this.isHidden ? "0 1" : "1 1";
       this.emptyColor = (_ref7 = model.emptyColor) != null ? _ref7 : 'white';
-      this.treeColor = (_ref8 = model.treeColor) != null ? _ref8 : 'blue';
+      this.treeColor = (_ref8 = model.treeColor) != null ? _ref8 : 'slateblue';
       this.marginTop = (_ref9 = model.marginTop) != null ? _ref9 : 20;
       this.marginBottom = (_ref10 = model.marginBottom) != null ? _ref10 : 10;
       this.frameLength = (_ref11 = model.frameLength) != null ? _ref11 : 20;
-      this.outerFramePaddingBottom = (_ref12 = model.outerFramePaddingBottom) != null ? _ref12 : 20;
-      this.x = (_ref13 = options.x) != null ? _ref13 : 5;
-      this.y = (_ref14 = options.y) != null ? _ref14 : 0;
+      this.newStar = (_ref12 = model.newStar) != null ? _ref12 : false;
+      this.lineWidth = (_ref13 = model.lineWidth) != null ? _ref13 : 2;
+      this.starLength = this.newStar ? (_ref14 = model.starLength) != null ? _ref14 : 15 : 0;
+      this.starRadius = this.newStar ? (_ref15 = model.starRadius) != null ? _ref15 : 5 : 0;
+      this.outerFramePaddingBottom = (_ref16 = model.outerFramePaddingBottom) != null ? _ref16 : 20;
+      this.x = (_ref17 = options.x) != null ? _ref17 : 5;
+      this.y = (_ref18 = options.y) != null ? _ref18 : 0;
       if (options.parent != null) {
         this.parent = options.parent;
         this.el = options.el;
@@ -256,14 +263,17 @@
       this.makeContentGroup();
       this.makeContent();
       this.makeLine();
+      if (this.newStar) {
+        this.makeStar();
+      }
       if (this.isHidden && (options.children != null)) {
         this.circleY = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
         this.circleX = this.indent;
       }
       if (options.children != null) {
-        _ref15 = options.children;
-        for (_i = 0, _len = _ref15.length; _i < _len; _i++) {
-          child = _ref15[_i];
+        _ref19 = options.children;
+        for (_i = 0, _len = _ref19.length; _i < _len; _i++) {
+          child = _ref19[_i];
           child.isHidden = true;
           this.newChild(child);
         }
@@ -343,6 +353,9 @@
     };
 
     SVGTreeNode.prototype.move = function() {
+      if (this.newStar) {
+        this.animateStar();
+      }
       this.animateLine();
       this.animateContent();
       this.animateCircle();
@@ -375,11 +388,6 @@
         _results.push(dY += child.totalHeight());
       }
       return _results;
-    };
-
-    SVGTreeNode.prototype.updateChild = function(child, index) {
-      child.x = this.x + this.indent;
-      return child.y = !child.isHidden ? this.y + this.nodeHeight * index : this.y;
     };
 
     SVGTreeNode.prototype.moveChildren = function(callback) {
@@ -418,7 +426,7 @@
 
     SVGTreeNode.prototype.totalHeight = function() {
       var child, n, _i, _len, _ref;
-      n = this.marginTop + this.contentHeight() + this.marginBottom;
+      n = this.marginTop + this.contentHeight() + this.marginBottom + this.starLength;
       _ref = this.visibleChildren();
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         child = _ref[_i];
@@ -438,10 +446,117 @@
       this.line = this.svgElement("polyline", {
         fill: "none",
         points: this.linePoints,
-        'stroke-width': "2px",
+        'stroke-width': "" + this.lineWidth + "px",
         stroke: this.treeColor
       });
       return this.el.appendChild(this.line);
+    };
+
+    SVGTreeNode.prototype.getStarLinePoints = function() {
+      var top;
+      top = this.y + this.flagpoleLength() + +this.marginTop + this.contentHeight() + this.marginBottom;
+      return {
+        x1: this.indent,
+        y1: top,
+        x2: this.indent,
+        y2: top + this.starLength
+      };
+    };
+
+    SVGTreeNode.prototype.makeStar = function() {
+      var c, cross1, cross2, diag1, diag2, diff;
+      this.starLinePoints = this.getStarLinePoints();
+      this.starLinePoints.fill = "none";
+      this.starLinePoints.stroke = this.treeColor;
+      this.starLinePoints['stroke-width'] = "" + this.lineWidth + "px";
+      this.starLine = this.svgElement("line", this.starLinePoints);
+      this.el.appendChild(this.starLine);
+      this.star = this.svgElement('g', {
+        transform: "translate(" + this.indent + ", " + this.starLinePoints.y2 + ")"
+      });
+      diff = Math.sqrt(this.starRadius * this.starRadius / 2);
+      diag1 = {
+        x1: -diff,
+        y1: diff,
+        x2: diff,
+        y2: -diff,
+        fill: "none",
+        "stroke-width": "" + (this.lineWidth / 2) + "px",
+        'stroke': this.treeColor
+      };
+      this.star.appendChild(this.svgElement('line', diag1));
+      diag2 = {
+        x1: -diff,
+        y1: -diff,
+        x2: diff,
+        y2: diff,
+        fill: "none",
+        "stroke-width": "" + (this.lineWidth / 2) + "px",
+        'stroke': this.treeColor
+      };
+      this.star.appendChild(this.svgElement('line', diag2));
+      cross1 = {
+        x1: this.starRadius,
+        y1: 0,
+        x2: -this.starRadius,
+        y2: 0,
+        fill: "none",
+        "stroke-width": "" + (this.lineWidth / 2) + "px",
+        'stroke': this.treeColor
+      };
+      this.star.appendChild(this.svgElement('line', cross1));
+      cross2 = {
+        x1: 0,
+        y1: this.starRadius,
+        x2: 0,
+        y2: -this.starRadius,
+        fill: "none",
+        "stroke-width": "" + (this.lineWidth / 2) + "px",
+        'stroke': this.treeColor
+      };
+      this.star.appendChild(this.svgElement('line', cross2));
+      c = {
+        cx: 0,
+        cy: 0,
+        r: this.starRadius,
+        opacity: 0
+      };
+      this.star.appendChild(this.svgElement("circle", c));
+      this.star.addEventListener("click", this.createChild);
+      return this.el.appendChild(this.star);
+    };
+
+    SVGTreeNode.prototype.animateStar = function(callback) {
+      var n, newStarLinePoints;
+      if (callback == null) {
+        callback = null;
+      }
+      if (this.starLine == null) {
+        if (this.isHidden) {
+          this.starLinePoints = this.getStarLinePoints();
+          return;
+        }
+        this.makeStar();
+      }
+      newStarLinePoints = this.getStarLinePoints();
+      this.animateElement({
+        attributeName: 'y1',
+        from: this.starLinePoints.y1,
+        to: newStarLinePoints.y1
+      }, this.starLine, callback);
+      this.animateElement({
+        attributeName: 'y2',
+        from: this.starLinePoints.y2,
+        to: newStarLinePoints.y2
+      }, this.starLine, null);
+      n = {
+        attributeName: 'transform',
+        from: "" + this.indent + " " + this.starLinePoints.y2,
+        to: "" + this.indent + " " + newStarLinePoints.y2,
+        type: "translate"
+      };
+      this.animateElement(n, this.star, null);
+      return this.starLinePoints = newStarLinePoints;
     };
 
     SVGTreeNode.prototype.animateLine = function(callback) {
@@ -489,10 +604,10 @@
         cx: this.indent,
         cy: this.circleY,
         r: this.circleRadius,
-        "stroke-width": "2px",
+        "stroke-width": "" + this.lineWidth + "px",
         stroke: this.treeColor
       });
-      this.circle.addEventListener("click", this.circleClick);
+      this.circle.addEventListener("click", this.toggleChildrenVisible);
       return this.el.appendChild(this.circle);
     };
 
@@ -622,6 +737,14 @@
       return this.el.appendChild(this.contentGroup);
     };
 
+    SVGTreeNode.prototype.toggleChildrenVisible = function(evt) {
+      if (this.visibleChildren().length !== this.children.length) {
+        return this.showChildren();
+      } else {
+        return this.hideChildren();
+      }
+    };
+
     return SVGTreeNode;
 
   })();
@@ -631,15 +754,14 @@
   BasicTree = (function(_super) {
     __extends(BasicTree, _super);
 
-    function BasicTree(options) {
+    function BasicTree() {
       this.makeContent = __bind(this.makeContent, this);
       this.makeText = __bind(this.makeText, this);
-      this.circleClick = __bind(this.circleClick, this);
-      this.contentClick = __bind(this.contentClick, this);
-      BasicTree.__super__.constructor.call(this, options);
+      this.createChild = __bind(this.createChild, this);
+      return BasicTree.__super__.constructor.apply(this, arguments);
     }
 
-    BasicTree.prototype.contentClick = function(evt) {
+    BasicTree.prototype.createChild = function(evt) {
       var options;
       options = {};
       if (this.visibleChildren().length !== this.children.length) {
@@ -647,14 +769,6 @@
       }
       this.newChild(options);
       return this.showChildren();
-    };
-
-    BasicTree.prototype.circleClick = function(evt) {
-      if (this.visibleChildren().length !== this.children.length) {
-        return this.showChildren();
-      } else {
-        return this.hideChildren();
-      }
     };
 
     BasicTree.prototype.makeText = function() {
@@ -681,7 +795,7 @@
       this.content.setAttribute('width', div.offsetWidth);
       this.content.setAttribute('height', div.offsetHeight);
       this.content.setAttribute('y', this.contentY);
-      return this.content.addEventListener("click", this.contentClick);
+      return this.content.addEventListener("click", this.toggleChildrenVisible);
     };
 
     return BasicTree;
@@ -689,5 +803,95 @@
   })(SVGTreeNode);
 
   module.BasicTree = BasicTree;
+
+  MenuTree = (function(_super) {
+    __extends(MenuTree, _super);
+
+    function MenuTree(options) {
+      this.makeContent = __bind(this.makeContent, this);
+      this.animateVisible = __bind(this.animateVisible, this);
+      var height, _ref, _ref1;
+      this.link = options.link;
+      this["class"] = options["class"];
+      this.id = options.id;
+      this.tag = options.tag;
+      this.width = (_ref = options.width) != null ? _ref : "200px";
+      this.height = (_ref1 = options.height) != null ? _ref1 : "20px";
+      if (this.tag == null) {
+        if (this.link != null) {
+          this.tag = 'a';
+        } else {
+          this.tag = 'p';
+        }
+      }
+      MenuTree.__super__.constructor.call(this, options);
+      if (this.parent == null) {
+        height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
+        this.el.setAttribute("height", "" + height + "px");
+        this.div.setAttribute("height", "" + height + "px");
+      }
+    }
+
+    MenuTree.prototype.animateVisible = function(callback) {
+      var newCallback;
+      if (callback == null) {
+        callback = null;
+      }
+      if (this.isHidden) {
+        newCallback = (function(_this) {
+          return function() {
+            _this.content.innerHTML = "";
+            if (callback != null) {
+              return callback();
+            }
+          };
+        })(this);
+        return MenuTree.__super__.animateVisible.call(this, newCallback);
+      } else {
+        this.content.appendChild(this.contentDiv);
+        return MenuTree.__super__.animateVisible.call(this, callback);
+      }
+    };
+
+    MenuTree.prototype.makeContent = function() {
+      var conf;
+      conf = {};
+      if (this.link != null) {
+        conf = {
+          href: this.link
+        };
+      }
+      if (this["class"] != null) {
+        conf["class"] = this["class"];
+      }
+      if (this.id != null) {
+        conf.id = id;
+      }
+      this.a = this.htmlElement(this.tag, conf);
+      this.a.innerHTML = this.name;
+      this.contentDiv = this.htmlElement('div', {
+        "class": this["class"]
+      });
+      this.contentDiv.appendChild(this.a);
+      this.content = this.svgElement('foreignObject');
+      this.contentGroup.appendChild(this.content);
+      if (!this.isHidden) {
+        this.content.appendChild(this.contentDiv);
+      }
+      this.contentDiv.style.height = this.height;
+      this.contentDiv.style.width = this.width;
+      this.content.setAttribute('width', this.width);
+      this.content.setAttribute('height', this.height);
+      this.content.setAttribute('y', this.contentY);
+      if (this.link == null) {
+        return this.contentDiv.addEventListener("click", this.toggleChildrenVisible);
+      }
+    };
+
+    return MenuTree;
+
+  })(SVGTreeNode);
+
+  module.MenuTree = MenuTree;
 
 }).call(this);
