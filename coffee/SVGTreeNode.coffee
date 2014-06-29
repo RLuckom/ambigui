@@ -1,7 +1,9 @@
-registerGlobal 'DOGWOOD', module
+module.DOGWOOD = {}
 
 # Recursive tree node.
 class SVGTreeNode
+
+  @animator: new module.Animator()
 
   # Creates a tag element in the svg namespace
   #
@@ -25,95 +27,6 @@ class SVGTreeNode
     for attr, value of attributes
       el.setAttribute(attr, value)
     return el
-
-  # Makes a function that takes a percent and returns that percent
-  # interpolation between the fromValues and toValues.
-  #
-  # @param {Number or Array} fromValues if Array, must be of Numbers
-  # @param {Number or Array} toValues if Array, must be of Numbers
-  # @return {Function} given %, returns fromValues + (toValues - fromValues) * %
-  interpolation: (fromValues, toValues) ->
-    if isNaN(fromValues) and isNaN(toValues)
-      diffs = (t - fromValues[i] for t, i in toValues)
-      return (percent) ->
-        f + diffs[i] * percent for f, i in fromValues
-    else
-      diff = toValues - fromValues
-      return (percent) -> fromValues + diff * percent
-
-  # Returns a function that takes a percent p and sets the specified
-  # attribute on the specified element to from + (to - from) * p
-  #
-  # formatter is a function that takes an array of values and puts them in the
-  # format required by the attribute. For instance, a formatter for a color
-  # attribute might be:
-  #
-  # formatter = (arr)-> "rgb(#{arr.join(',')})"
-  #
-  # @param {DOMNode} el element to transition
-  # @param {String} attr attribute of node to transition
-  # @param {Number or Array} fromValues if Array, must be of Numbers
-  # @param {Number or Array} toValues if Array, must be of Numbers
-  # @param {Function} formatter see above
-  transition: (el, attr, fromValues, toValues, formatter) ->
-    interpolator = @interpolation fromValues, toValues
-    return (percent) ->
-      el.setAttribute attr, formatter interpolator percent
-
-  # Returns a function f that will animate the element from the from state
-  # to the to state over the duration.
-  #
-  # @param {DOMNode} el element to transition
-  # @param {String} attr attribute of node to transition
-  # @param {Number or Array} fromValues if Array, must be of Numbers
-  # @param {Number or Array} toValues if Array, must be of Numbers
-  # @param {Function} formatter see transition
-  # @param {Function} callback if given, will be executed after animation
-  animation: (el, attr, from, to, step, duration, formatter, callback) ->
-    transition = @transition el, attr, from, to, formatter
-    startTime = null
-    f = ->
-      startTime ?= new Date().getTime()
-      dT = new Date().getTime() - startTime
-      if dT >= duration
-        transition 1
-        callback() if callback?
-      else
-        transition dT / duration
-        window.setTimeout f, step
-    return f
-  
-  # creates an animation element from attributes in spec,
-  # appends it to element parent, and if given, sets callback to fire when the
-  # animation finishes
-  #
-  # @param {Object} spec dur, repeatCount, fill, and begin have auto values
-  # @param {SVGElement} parentElement element to be animated
-  # @param {Function} callback if given, will be executed after animation
-  animateElement: (spec, parentElement, callback=null) =>
-    duration = @animateDuration
-    if spec.attributeName in ['y', 'cy', 'height', 'y1', 'y2']
-      formatter = (x) -> "#{x}px"
-      @animation(
-        parentElement, spec.attributeName, spec.from,
-        spec.to, @frameLength, duration, formatter, callback
-      )()
-    if spec.attributeName == 'points'
-      from = (parseInt(x) for x in spec.from.split ' ')
-      to = (parseInt(x) for x in spec.to.split ' ')
-      formatter = (x) -> x.join ' '
-      @animation(
-        parentElement, spec.attributeName, from,
-        to, @frameLength, duration, formatter, callback
-      )()
-    if spec.attributeName == 'transform'
-      from = (parseInt(x) for x in spec.from.split ' ')
-      to = (parseInt(x) for x in spec.to.split ' ')
-      formatter = (x) -> "#{spec.type}(#{x.join ' '})"
-      @animation(
-        parentElement, spec.attributeName, from,
-        to, @frameLength, duration, formatter, callback
-      )()
 
   # returns data about the tree
   toString: =>
@@ -245,14 +158,14 @@ class SVGTreeNode
     n = @div.offsetHeight
     if n != @totalHeight() + @contentHeight() + @outerFramePaddingBottom
       height = @totalHeight() + @contentHeight() + @outerFramePaddingBottom
-      @animateElement(
-        {attributeName: 'height', from: n, to: height},
-        @div,
-      )
-      @animateElement(
-        {attributeName: 'height', from: n, to: height},
-        @el,
-      )
+      SVGTreeNode.animator.animation(
+        @div, "height", "#{n}px", "#{height}px", @frameLength,
+        @animateDuration, null
+      )()
+      SVGTreeNode.animator.animation(
+        @el, "height", "#{n}px", "#{height}px", @frameLength,
+        @animateDuration, null
+      )()
 
   # Updates the position and form of the node.
   move: =>
@@ -330,22 +243,28 @@ class SVGTreeNode
     }
     @el.appendChild @line
 
+  # gets the position of the top of the star
+  getStarTop: =>
+    @y + @flagpoleLength() + @marginTop + @contentHeight() + @marginBottom
+
   # @return {Object} current x1, y1, x2, y2 for line to star
   getStarLinePoints: =>
-    top = (@y + @flagpoleLength() +
-      + @marginTop + @contentHeight() + @marginBottom)
-    {x1: @indent, y1: top, x2: @indent, y2: top + @starLength}
+    top = @getStarTop()
+    "#{@indent}, #{top}, #{@indent}, #{top + @starLength}"
 
   # Assembles the star, appends to @el. binds createChild
   makeStar: =>
-    @starLinePoints = @getStarLinePoints()
-    @starLinePoints.fill = "none"
-    @starLinePoints.stroke = @treeColor
-    @starLinePoints['stroke-width'] = "#{@lineWidth}px"
-    @starLine = @svgElement "line", @starLinePoints
+    @starTop = @getStarTop()
+    starLinePoints = {
+      x1: @indent, y1:@starTop, x2: @indent, y2: @starTop + @starLength
+    }
+    starLinePoints.fill = "none"
+    starLinePoints.stroke = @treeColor
+    starLinePoints['stroke-width'] = "#{@lineWidth}px"
+    @starLine = @svgElement "line", starLinePoints
     @el.appendChild @starLine
     @star = @svgElement('g', {
-      transform: "translate(#{@indent}, #{@starLinePoints.y2})"
+      transform: "translate(#{@indent}, #{@getStarTop()})"
     })
     diff = Math.sqrt @starRadius * @starRadius / 2
     diag1 = {
@@ -377,26 +296,25 @@ class SVGTreeNode
   animateStar: (callback=null) =>
     if not @starLine?
       if @isHidden
-        @starLinePoints = @getStarLinePoints()
+        @starTop = @getStarTop()
         return
       @makeStar()
-    newStarLinePoints = @getStarLinePoints()
-    @animateElement(
-      {attributeName: 'y1', from: @starLinePoints.y1, to: newStarLinePoints.y1},
-      @starLine, callback
-    )
-    @animateElement(
-      {attributeName: 'y2', from: @starLinePoints.y2, to: newStarLinePoints.y2},
-      @starLine, null
-    )
-    n = {
-      attributeName: 'transform'
-      from: "#{@indent} #{@starLinePoints.y2}"
-      to: "#{@indent} #{newStarLinePoints.y2}"
-      type: "translate"
-    }
-    @animateElement n, @star, null
-    @starLinePoints = newStarLinePoints
+    newStarTop = @getStarTop
+    SVGTreeNode.animator.animation(
+      @starLine, 'y1', "#{@starTop}px", "#{newStarTop}px",
+      @frameLength, @animateDuration, callback
+    )()
+    SVGTreeNode.animator.animation(
+      @starLine, 'y1', "#{@starTop + @starLength}px",
+      "#{newStarTop + @starLength}px",
+      @frameLength, @animateDuration, null
+    )()
+    SVGTreeNode.animator.animation(
+      @star, "transform", "translate(#{@indent} #{@starTop + @starLength})",
+      "translate(#{@indent} #{newStarTop + @starLength})", @frameLength,
+      @animateDuration, null
+    )()
+    @starTop = newStarTop
       
   # move the line to the correct position
   #
@@ -408,11 +326,10 @@ class SVGTreeNode
         return
       @makeLine()
     newPoints = @getLinePoints()
-    @animateElement(
-      {attributeName: 'points', from: @linePoints, to: newPoints},
-      @line,
-      callback
-    )
+    SVGTreeNode.animator.animation(
+      @line, "points", @linePoints, newPoints,
+      @frameLength, @animateDuration, callback
+    )()
     @linePoints = newPoints
 
   # move the text to the correct position
@@ -420,9 +337,10 @@ class SVGTreeNode
   # @param {Function} callback if given will be called on animation end
   animateContent: (callback=null) =>
     newY = @y + @marginTop
-    @animateElement(
-      {attributeName: 'y', to: newY, from: @contentY}, @content, callback
-    )
+    SVGTreeNode.animator.animation(
+      @content, "y", "#{@contentY}px", "#{newY}px",
+      @frameLength, @animateDuration, callback
+    )()
     @contentY = newY
 
   # @return {DOM.SVGSVGElement} circle
@@ -450,9 +368,10 @@ class SVGTreeNode
       else
         @makeCircle()
     new_cy = @y + @marginTop + @contentHeight() + @marginBottom
-    @animateElement(
-      {attributeName: 'cy', to: new_cy, from: @circleY}, @circle, callback
-    )
+    SVGTreeNode.animator.animation(
+      @circle, "cy", "#{@circleY}px", "#{new_cy}px",
+      @frameLength, @animateDuration, callback
+    )()
     @circleY = new_cy
     color = if @visibleChildren().length == 0 then @treeColor else @emptyColor
     @circle.setAttribute 'fill', color
@@ -506,14 +425,11 @@ class SVGTreeNode
   # @param {Function} callback if provided, called on animation end.
   animateVisible: (callback=null) =>
     newScale = if @isHidden then "0 1" else "1 1"
-    spec = {
-      attributeName: 'transform',
-      type: 'scale',
-      from: @scale,
-      to: newScale
-    }
+    SVGTreeNode.animator.animation(
+      @el, "transform", "scale(#{@scale})", "scale(#{newScale})",
+      @frameLength, @animateDuration, callback
+    )()
     @scale = newScale
-    @animateElement spec, @el, callback
 
   # The ContentGroup is an svg 'g' element that holds the content. This
   # sets it up. Should be called before attempting to make the content.
@@ -530,4 +446,4 @@ class SVGTreeNode
     else
       @hideChildren()
 
-module.SVGTreeNode = SVGTreeNode
+module.DOGWOOD.SVGTreeNode = SVGTreeNode

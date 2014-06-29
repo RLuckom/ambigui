@@ -112,4 +112,4 @@ class MenuTree extends SVGTreeNode
     if not @link?
       @contentDiv.addEventListener "click", @toggleChildrenVisible
 
-module.MenuTree = MenuTree
+module.DOGWOOD.MenuTree = MenuTree
