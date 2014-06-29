@@ -56,8 +56,10 @@ module.exports = function(grunt) {
                     join: true,
                 },
 		files: {'dist/js/DOGWOOD_compiled.js': ['coffee/registerGlobal.coffee',
+			                                'coffee/Animator.coffee',
 			                                'coffee/SVGTreeNode.coffee',
-							'coffee/DivTreeNode.coffee']
+							'coffee/DivTreeNode.coffee'],
+			'test/test.js': ['test/coffee/testSVGTreeNode.coffee']
                 }
             }
         },
@@ -83,7 +85,7 @@ module.exports = function(grunt) {
             },
             js: {
                 files: ['js/**/*.js', 'test/**/*.js'],
-                tasks: ['jshint', 'concat', 'uglify']
+                tasks: ['jshint', 'concat', 'uglify', 'qunit']
             }
         }
     });

@@ -1,5 +1,6 @@
 (function() {
-  var BasicTree, MenuTree, SVGTreeNode, exports, module, registerGlobal,
+  var Animator, BasicTree, MenuTree, SVGTreeNode, exports, module, registerGlobal,
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -16,9 +17,142 @@
 
   module = {};
 
-  registerGlobal('DOGWOOD', module);
+  registerGlobal('ambigui', module);
+
+  Animator = (function() {
+    function Animator() {}
+
+    Animator.prototype.valAndFormatArrays = function(s) {
+      var chars, format_section, formatting, numIndexToFormattingIndex, num_candidate, num_chars, numbers, _ref, _ref1;
+      num_chars = '-+.eE0123456789'.split('');
+      chars = s.split('');
+      chars.reverse();
+      format_section = '';
+      num_candidate = '';
+      numbers = [];
+      formatting = [];
+      numIndexToFormattingIndex = {};
+      while (chars.length !== 0) {
+        while ((_ref = chars[chars.length - 1], __indexOf.call(num_chars, _ref) >= 0) && chars.length > 0) {
+          num_candidate += chars.pop();
+        }
+        while ((!(_ref1 = chars[chars.length - 1], __indexOf.call(num_chars, _ref1) >= 0)) && (chars.length > 0)) {
+          format_section += chars.pop();
+        }
+        if ((!isNaN(Number(num_candidate))) && (num_candidate.length > 0)) {
+          numIndexToFormattingIndex[numbers.length] = formatting.length;
+          numbers.push(parseFloat(num_candidate));
+          formatting.push(null);
+          num_candidate = '';
+        } else if (num_candidate.length > 0) {
+          format_section = formatting.pop() + num_candidate + format_section;
+          num_candidate = '';
+        }
+        if (format_section.length > 0) {
+          formatting.push(format_section);
+          format_section = '';
+        }
+      }
+      return [numbers, formatting, numIndexToFormattingIndex];
+    };
+
+    Animator.prototype.makeFormatter = function(formatting, numIndexToFormattingIndex) {
+      return function(num_array) {
+        var fmt_copy, indx, n, sum, x, _i, _len;
+        fmt_copy = (function() {
+          var _i, _len, _results;
+          _results = [];
+          for (_i = 0, _len = formatting.length; _i < _len; _i++) {
+            x = formatting[_i];
+            _results.push(x);
+          }
+          return _results;
+        })();
+        for (indx = _i = 0, _len = num_array.length; _i < _len; indx = ++_i) {
+          n = num_array[indx];
+          fmt_copy[numIndexToFormattingIndex[indx]] = n;
+        }
+        sum = function(s1, s2) {
+          return s1 + s2;
+        };
+        return fmt_copy.reduce(sum, '');
+      };
+    };
+
+    Animator.prototype.interpolation = function(fromValues, toValues) {
+      var diff, diffs, i, t;
+      if ((fromValues instanceof Array) && (toValues instanceof Array)) {
+        diffs = (function() {
+          var _i, _len, _results;
+          _results = [];
+          for (i = _i = 0, _len = toValues.length; _i < _len; i = ++_i) {
+            t = toValues[i];
+            _results.push(t - fromValues[i]);
+          }
+          return _results;
+        })();
+        return function(percent) {
+          var f, _i, _len, _results;
+          _results = [];
+          for (i = _i = 0, _len = fromValues.length; _i < _len; i = ++_i) {
+            f = fromValues[i];
+            _results.push(f + diffs[i] * percent);
+          }
+          return _results;
+        };
+      } else {
+        diff = toValues - fromValues;
+        return function(percent) {
+          return fromValues + diff * percent;
+        };
+      }
+    };
+
+    Animator.prototype.transition = function(el, attr, fromValues, toValues, formatter) {
+      var interpolator;
+      interpolator = this.interpolation(fromValues, toValues);
+      return function(percent) {
+        return el.setAttribute(attr, formatter(interpolator(percent)));
+      };
+    };
+
+    Animator.prototype.animation = function(el, attr, from, to, step, duration, callback) {
+      var f, formatter, fromFmt, fromMap, fromVals, startTime, toFmt, toMap, toVals, transition, _ref, _ref1;
+      _ref = this.valAndFormatArrays(from), fromVals = _ref[0], fromFmt = _ref[1], fromMap = _ref[2];
+      _ref1 = this.valAndFormatArrays(to), toVals = _ref1[0], toFmt = _ref1[1], toMap = _ref1[2];
+      formatter = this.makeFormatter(fromFmt, fromMap);
+      transition = this.transition(el, attr, fromVals, toVals, formatter);
+      startTime = null;
+      f = function() {
+        var dT;
+        if (startTime == null) {
+          startTime = new Date().getTime();
+        }
+        dT = new Date().getTime() - startTime;
+        if (dT >= duration) {
+          transition(1);
+          if (callback != null) {
+            return callback();
+          }
+        } else {
+          transition(dT / duration);
+          return window.setTimeout(f, step);
+        }
+      };
+      return f;
+    };
+
+    return Animator;
+
+  })();
+
+  module.Animator = Animator;
+
+  module.DOGWOOD = {};
 
   SVGTreeNode = (function() {
+    SVGTreeNode.animator = new module.Animator();
+
     SVGTreeNode.prototype.svgElement = function(tag, attributes) {
       var attr, el, value;
       if (attributes == null) {
@@ -48,132 +182,6 @@
         el.setAttribute(attr, value);
       }
       return el;
-    };
-
-    SVGTreeNode.prototype.interpolation = function(fromValues, toValues) {
-      var diff, diffs, i, t;
-      if (isNaN(fromValues) && isNaN(toValues)) {
-        diffs = (function() {
-          var _i, _len, _results;
-          _results = [];
-          for (i = _i = 0, _len = toValues.length; _i < _len; i = ++_i) {
-            t = toValues[i];
-            _results.push(t - fromValues[i]);
-          }
-          return _results;
-        })();
-        return function(percent) {
-          var f, _i, _len, _results;
-          _results = [];
-          for (i = _i = 0, _len = fromValues.length; _i < _len; i = ++_i) {
-            f = fromValues[i];
-            _results.push(f + diffs[i] * percent);
-          }
-          return _results;
-        };
-      } else {
-        diff = toValues - fromValues;
-        return function(percent) {
-          return fromValues + diff * percent;
-        };
-      }
-    };
-
-    SVGTreeNode.prototype.transition = function(el, attr, fromValues, toValues, formatter) {
-      var interpolator;
-      interpolator = this.interpolation(fromValues, toValues);
-      return function(percent) {
-        return el.setAttribute(attr, formatter(interpolator(percent)));
-      };
-    };
-
-    SVGTreeNode.prototype.animation = function(el, attr, from, to, step, duration, formatter, callback) {
-      var f, startTime, transition;
-      transition = this.transition(el, attr, from, to, formatter);
-      startTime = null;
-      f = function() {
-        var dT;
-        if (startTime == null) {
-          startTime = new Date().getTime();
-        }
-        dT = new Date().getTime() - startTime;
-        if (dT >= duration) {
-          transition(1);
-          if (callback != null) {
-            return callback();
-          }
-        } else {
-          transition(dT / duration);
-          return window.setTimeout(f, step);
-        }
-      };
-      return f;
-    };
-
-    SVGTreeNode.prototype.animateElement = function(spec, parentElement, callback) {
-      var duration, formatter, from, to, x, _ref;
-      if (callback == null) {
-        callback = null;
-      }
-      duration = this.animateDuration;
-      if ((_ref = spec.attributeName) === 'y' || _ref === 'cy' || _ref === 'height' || _ref === 'y1' || _ref === 'y2') {
-        formatter = function(x) {
-          return "" + x + "px";
-        };
-        this.animation(parentElement, spec.attributeName, spec.from, spec.to, this.frameLength, duration, formatter, callback)();
-      }
-      if (spec.attributeName === 'points') {
-        from = (function() {
-          var _i, _len, _ref1, _results;
-          _ref1 = spec.from.split(' ');
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            x = _ref1[_i];
-            _results.push(parseInt(x));
-          }
-          return _results;
-        })();
-        to = (function() {
-          var _i, _len, _ref1, _results;
-          _ref1 = spec.to.split(' ');
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            x = _ref1[_i];
-            _results.push(parseInt(x));
-          }
-          return _results;
-        })();
-        formatter = function(x) {
-          return x.join(' ');
-        };
-        this.animation(parentElement, spec.attributeName, from, to, this.frameLength, duration, formatter, callback)();
-      }
-      if (spec.attributeName === 'transform') {
-        from = (function() {
-          var _i, _len, _ref1, _results;
-          _ref1 = spec.from.split(' ');
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            x = _ref1[_i];
-            _results.push(parseInt(x));
-          }
-          return _results;
-        })();
-        to = (function() {
-          var _i, _len, _ref1, _results;
-          _ref1 = spec.to.split(' ');
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            x = _ref1[_i];
-            _results.push(parseInt(x));
-          }
-          return _results;
-        })();
-        formatter = function(x) {
-          return "" + spec.type + "(" + (x.join(' ')) + ")";
-        };
-        return this.animation(parentElement, spec.attributeName, from, to, this.frameLength, duration, formatter, callback)();
-      }
     };
 
     SVGTreeNode.prototype.toString = function() {
@@ -214,6 +222,7 @@
       this.animateStar = __bind(this.animateStar, this);
       this.makeStar = __bind(this.makeStar, this);
       this.getStarLinePoints = __bind(this.getStarLinePoints, this);
+      this.getStarTop = __bind(this.getStarTop, this);
       this.makeLine = __bind(this.makeLine, this);
       this.getLinePoints = __bind(this.getLinePoints, this);
       this.totalHeight = __bind(this.totalHeight, this);
@@ -227,7 +236,6 @@
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
-      this.animateElement = __bind(this.animateElement, this);
       var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref17, _ref18, _ref19, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
@@ -339,16 +347,8 @@
       n = this.div.offsetHeight;
       if (n !== this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom) {
         height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
-        this.animateElement({
-          attributeName: 'height',
-          from: n,
-          to: height
-        }, this.div);
-        return this.animateElement({
-          attributeName: 'height',
-          from: n,
-          to: height
-        }, this.el);
+        SVGTreeNode.animator.animation(this.div, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
+        return SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
       }
     };
 
@@ -452,27 +452,32 @@
       return this.el.appendChild(this.line);
     };
 
+    SVGTreeNode.prototype.getStarTop = function() {
+      return this.y + this.flagpoleLength() + this.marginTop + this.contentHeight() + this.marginBottom;
+    };
+
     SVGTreeNode.prototype.getStarLinePoints = function() {
       var top;
-      top = this.y + this.flagpoleLength() + +this.marginTop + this.contentHeight() + this.marginBottom;
-      return {
-        x1: this.indent,
-        y1: top,
-        x2: this.indent,
-        y2: top + this.starLength
-      };
+      top = this.getStarTop();
+      return "" + this.indent + ", " + top + ", " + this.indent + ", " + (top + this.starLength);
     };
 
     SVGTreeNode.prototype.makeStar = function() {
-      var c, cross1, cross2, diag1, diag2, diff;
-      this.starLinePoints = this.getStarLinePoints();
-      this.starLinePoints.fill = "none";
-      this.starLinePoints.stroke = this.treeColor;
-      this.starLinePoints['stroke-width'] = "" + this.lineWidth + "px";
-      this.starLine = this.svgElement("line", this.starLinePoints);
+      var c, cross1, cross2, diag1, diag2, diff, starLinePoints;
+      this.starTop = this.getStarTop();
+      starLinePoints = {
+        x1: this.indent,
+        y1: this.starTop,
+        x2: this.indent,
+        y2: this.starTop + this.starLength
+      };
+      starLinePoints.fill = "none";
+      starLinePoints.stroke = this.treeColor;
+      starLinePoints['stroke-width'] = "" + this.lineWidth + "px";
+      this.starLine = this.svgElement("line", starLinePoints);
       this.el.appendChild(this.starLine);
       this.star = this.svgElement('g', {
-        transform: "translate(" + this.indent + ", " + this.starLinePoints.y2 + ")"
+        transform: "translate(" + this.indent + ", " + (this.getStarTop()) + ")"
       });
       diff = Math.sqrt(this.starRadius * this.starRadius / 2);
       diag1 = {
@@ -527,36 +532,22 @@
     };
 
     SVGTreeNode.prototype.animateStar = function(callback) {
-      var n, newStarLinePoints;
+      var newStarTop;
       if (callback == null) {
         callback = null;
       }
       if (this.starLine == null) {
         if (this.isHidden) {
-          this.starLinePoints = this.getStarLinePoints();
+          this.starTop = this.getStarTop();
           return;
         }
         this.makeStar();
       }
-      newStarLinePoints = this.getStarLinePoints();
-      this.animateElement({
-        attributeName: 'y1',
-        from: this.starLinePoints.y1,
-        to: newStarLinePoints.y1
-      }, this.starLine, callback);
-      this.animateElement({
-        attributeName: 'y2',
-        from: this.starLinePoints.y2,
-        to: newStarLinePoints.y2
-      }, this.starLine, null);
-      n = {
-        attributeName: 'transform',
-        from: "" + this.indent + " " + this.starLinePoints.y2,
-        to: "" + this.indent + " " + newStarLinePoints.y2,
-        type: "translate"
-      };
-      this.animateElement(n, this.star, null);
-      return this.starLinePoints = newStarLinePoints;
+      newStarTop = this.getStarTop;
+      SVGTreeNode.animator.animation(this.starLine, 'y1', "" + this.starTop + "px", "" + newStarTop + "px", this.frameLength, this.animateDuration, callback)();
+      SVGTreeNode.animator.animation(this.starLine, 'y1', "" + (this.starTop + this.starLength) + "px", "" + (newStarTop + this.starLength) + "px", this.frameLength, this.animateDuration, null)();
+      SVGTreeNode.animator.animation(this.star, "transform", "translate(" + this.indent + " " + (this.starTop + this.starLength) + ")", "translate(" + this.indent + " " + (newStarTop + this.starLength) + ")", this.frameLength, this.animateDuration, null)();
+      return this.starTop = newStarTop;
     };
 
     SVGTreeNode.prototype.animateLine = function(callback) {
@@ -572,11 +563,7 @@
         this.makeLine();
       }
       newPoints = this.getLinePoints();
-      this.animateElement({
-        attributeName: 'points',
-        from: this.linePoints,
-        to: newPoints
-      }, this.line, callback);
+      SVGTreeNode.animator.animation(this.line, "points", this.linePoints, newPoints, this.frameLength, this.animateDuration, callback)();
       return this.linePoints = newPoints;
     };
 
@@ -586,11 +573,7 @@
         callback = null;
       }
       newY = this.y + this.marginTop;
-      this.animateElement({
-        attributeName: 'y',
-        to: newY,
-        from: this.contentY
-      }, this.content, callback);
+      SVGTreeNode.animator.animation(this.content, "y", "" + this.contentY + "px", "" + newY + "px", this.frameLength, this.animateDuration, callback)();
       return this.contentY = newY;
     };
 
@@ -624,11 +607,7 @@
         }
       }
       new_cy = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
-      this.animateElement({
-        attributeName: 'cy',
-        to: new_cy,
-        from: this.circleY
-      }, this.circle, callback);
+      SVGTreeNode.animator.animation(this.circle, "cy", "" + this.circleY + "px", "" + new_cy + "px", this.frameLength, this.animateDuration, callback)();
       this.circleY = new_cy;
       color = this.visibleChildren().length === 0 ? this.treeColor : this.emptyColor;
       return this.circle.setAttribute('fill', color);
@@ -712,19 +691,13 @@
     };
 
     SVGTreeNode.prototype.animateVisible = function(callback) {
-      var newScale, spec;
+      var newScale;
       if (callback == null) {
         callback = null;
       }
       newScale = this.isHidden ? "0 1" : "1 1";
-      spec = {
-        attributeName: 'transform',
-        type: 'scale',
-        from: this.scale,
-        to: newScale
-      };
-      this.scale = newScale;
-      return this.animateElement(spec, this.el, callback);
+      SVGTreeNode.animator.animation(this.el, "transform", "scale(" + this.scale + ")", "scale(" + newScale + ")", this.frameLength, this.animateDuration, callback)();
+      return this.scale = newScale;
     };
 
     SVGTreeNode.prototype.makeContentGroup = function() {
@@ -749,7 +722,7 @@
 
   })();
 
-  module.SVGTreeNode = SVGTreeNode;
+  module.DOGWOOD.SVGTreeNode = SVGTreeNode;
 
   BasicTree = (function(_super) {
     __extends(BasicTree, _super);
@@ -892,6 +865,6 @@
 
   })(SVGTreeNode);
 
-  module.MenuTree = MenuTree;
+  module.DOGWOOD.MenuTree = MenuTree;
 
 }).call(this);
