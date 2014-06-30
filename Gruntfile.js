@@ -58,7 +58,11 @@ module.exports = function(grunt) {
 		files: {'dist/js/DOGWOOD_compiled.js': ['coffee/registerGlobal.coffee',
 			                                'coffee/Animator.coffee',
 			                                'coffee/SVGTreeNode.coffee',
-							'coffee/DivTreeNode.coffee'],
+							'coffee/EditableTree.coffee',
+							'coffee/BasicTree.coffee',
+							'coffee/BasicEditableTree.coffee',
+							'coffee/TODOListTree.coffee',
+							'coffee/MenuTree.coffee'],
 			'test/test.js': ['test/coffee/testSVGTreeNode.coffee']
                 }
             }
