@@ -19,10 +19,13 @@
         <p>DOGWOOD is an SVG-based tree UI. In this demo, the navigation menu at the top is a DOGWOOD.MenuTree. 
         Nodes with children have blue circles. Click on the blue circle or text of a non-link node to toggle its
         childrens' visibility.</p>
+        <p>Below is an example of a TODOListTree, a subclass of an EditableTree, which can be populated and
+        edited by the user. Click on the text of a node to edit it and show the dialog for deleting the node;
+        click the plus circles beneath the nodes to add new ones.</p>
         <script>
             window.onload = function() {
               d = document.getElementById("svgDiv");
-              x = new ambigui.DOGWOOD.MenuTree({
+              new ambigui.DOGWOOD.MenuTree({
                 el: d,
                 indent: 20,
                 text: 'ambigui',
@@ -37,8 +40,15 @@
                      {text: "Download .tar.gz", link:"https://github.com/RLuckom/ambigui/tarball/master", "class": "nav-link"},
                   ]}],
               });
+              e = document.getElementById("ExtendableTreeDiv");
+              new ambigui.DOGWOOD.TODOListTree({
+                el: e,
+                text: 'TODO',
+                contentDX: 10
+              });
             }
         </script>
+     <div id="ExtendableTreeDiv"></div>
      </div>
      <footer>
          <p class="meta"><a href="github.com/rluckom/ambigui"><b>ambigui</b></a>
