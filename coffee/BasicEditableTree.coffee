@@ -2,6 +2,14 @@
 # SVGTreeNode
 class BasicEditableTree extends EditableTree
 
+  # Override some defaults...
+  constructor: (options) ->
+    model = options.parent ? options
+    model.circleRadius ?= 10
+    model.starRadius ?= 10
+    model.starLength ?= 26
+    super options
+
   # using "click the circle" to test out a few behaviors I'll want later.
   createChild: (evt) =>
     options = {}

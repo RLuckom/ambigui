@@ -673,7 +673,7 @@
     };
 
     EditableTree.prototype.totalHeight = function() {
-      return EditableTree.__super__.totalHeight.call(this) + this.starLength;
+      return EditableTree.__super__.totalHeight.call(this) + this.starLength + this.starRadius;
     };
 
     EditableTree.prototype.getStarTop = function() {
@@ -687,7 +687,7 @@
     };
 
     EditableTree.prototype.makeStar = function() {
-      var c, cross1, cross2, diff, starLinePoints;
+      var c, cross1, cross2, starLinePoints;
       if (this.starTop == null) {
         this.starTop = this.getStarTop();
       }
@@ -704,7 +704,6 @@
       this.star = this.svgElement('g', {
         transform: "translate(" + this.indent + ", " + (this.starTop + this.starLength) + ")"
       });
-      diff = Math.sqrt(this.starRadius * this.starRadius / 2);
       c = {
         cx: 0,
         cy: 0,
@@ -833,11 +832,22 @@
   BasicEditableTree = (function(_super) {
     __extends(BasicEditableTree, _super);
 
-    function BasicEditableTree() {
+    function BasicEditableTree(options) {
       this.makeDiv = __bind(this.makeDiv, this);
       this.makeContent = __bind(this.makeContent, this);
       this.createChild = __bind(this.createChild, this);
-      return BasicEditableTree.__super__.constructor.apply(this, arguments);
+      var model, _ref;
+      model = (_ref = options.parent) != null ? _ref : options;
+      if (model.circleRadius == null) {
+        model.circleRadius = 10;
+      }
+      if (model.starRadius == null) {
+        model.starRadius = 10;
+      }
+      if (model.starLength == null) {
+        model.starLength = 26;
+      }
+      BasicEditableTree.__super__.constructor.call(this, options);
     }
 
     BasicEditableTree.prototype.createChild = function(evt) {
