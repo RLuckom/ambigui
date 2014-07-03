@@ -59,10 +59,11 @@ class SVGTreeNode
   #
   # @param {Object} options
   # @param {Bool} options.isHidden whether to display the node
+  # @param {String} options.text the text to display on the node.
+  # @param {Bool} options.autoAdjust Whether to autoresize containing div.
   # @param {Number} options.x x-coord
   # @param {Number} options.y y-coord
   # @param {SVGTreeNode} options.parent If provided, used to populate members.
-  # @param {String} options.text the text to display on the node.
   # @param {Number} model.indent x-distance to translate per generation.
   # @param {Number} model.textDX x-offset of the text from 0 in the node-frame.
   # @param {Number} model.elementOffset y-offset of the element from node-0.
@@ -74,6 +75,7 @@ class SVGTreeNode
     @children = []
     model = options.parent ? options
     @name = options.text ? "Root"
+    @autoAdjust = options.autoAdjust ? true
     @indent = model.indent ? 40
     @contentDX = model.contentDX ? 15
     @circleRadius = model.circleRadius ? 4
@@ -143,7 +145,7 @@ class SVGTreeNode
   # their current 'correct' location
   updatePosition: (callback=null) =>
     @updateChildren()
-    if not @parent?
+    if not @parent? and @autoAdjust
       @updateOuterFrame()
     @moveChildren()
     @move()
@@ -162,6 +164,17 @@ class SVGTreeNode
         @el, "height", "#{n}px", "#{height}px", @frameLength,
         @animateDuration, null
       )()
+    @width ?= @div.offsetWidth
+    if @width != @totalWidth()
+      SVGTreeNode.animator.animation(
+        @div, "width", "#{@width}px", "#{@totalWidth()}px", @frameLength,
+        @animateDuration, null
+      )()
+      SVGTreeNode.animator.animation(
+        @el, "width", "#{@width}px", "#{@totalWidth()}px", @frameLength,
+        @animateDuration, null
+      )()
+      @width = @totalWidth()
 
   # Updates the position and form of the node.
   move: =>
@@ -180,6 +193,19 @@ class SVGTreeNode
         return node.offsetHeight
       if node.height?
         return node.height.baseVal.value
+
+  # Returns the width of the caller-supplied content in the node
+  # TODO: Currently returns after first node with height
+  #
+  # @return {Number}
+  contentWidth: =>
+    candidates = []
+    for node in @contentGroup.childNodes
+      if node.offsetWidth?
+        candidates.push node.offsetWidth
+      if node.width?
+        candidates.push node.width.baseVal.value
+    return Math.max candidates...
 
   # updates the position of all children.
   updateChildren: =>
@@ -217,6 +243,13 @@ class SVGTreeNode
     n = @marginTop + @contentHeight() + @marginBottom
     n += child.totalHeight() for child in @visibleChildren()
     return n
+
+  # Returns the total width of the node, including all descendants.
+  # @return {Number}
+  totalWidth: =>
+    candidates = [Math.max(@contentWidth() + @contentDX, 2 * @indent)]
+    candidates.push(@indent + c.totalWidth()) for c in @children
+    return Math.max candidates...
 
   # Returns the current coordinates to use for the polyline.
   # Sets priorLinePoints to the existing coordinates, if any.
@@ -355,7 +388,7 @@ class SVGTreeNode
   # The ContentGroup is an svg 'g' element that holds the content. This
   # sets it up. Should be called before attempting to make the content.
   makeContentGroup: =>
-    @contentX = 2 * @contentDX
+    @contentX = @contentDX
     transform_spec = transform: "translate(#{@contentX}, 0)"
     @contentGroup = @svgElement "g", transform_spec
     @el.appendChild @contentGroup
