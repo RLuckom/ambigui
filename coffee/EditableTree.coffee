@@ -19,7 +19,7 @@ class EditableTree extends SVGTreeNode
 
   # @return {Number} total height including children, and newNode icons
   totalHeight: =>
-    return super() + @starLength
+    return super() + @starLength + @starRadius
 
   # @return {Number} position of the top of the star
   getStarTop: =>
@@ -43,7 +43,6 @@ class EditableTree extends SVGTreeNode
     @star = @svgElement('g', {
       transform: "translate(#{@indent}, #{@starTop + @starLength})"
     })
-    diff = Math.sqrt @starRadius * @starRadius / 2
     c =  {
       cx: 0,
       cy: 0,
