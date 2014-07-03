@@ -218,10 +218,12 @@
       this.animateLine = __bind(this.animateLine, this);
       this.makeLine = __bind(this.makeLine, this);
       this.getLinePoints = __bind(this.getLinePoints, this);
+      this.totalWidth = __bind(this.totalWidth, this);
       this.totalHeight = __bind(this.totalHeight, this);
       this.flagpoleLength = __bind(this.flagpoleLength, this);
       this.moveChildren = __bind(this.moveChildren, this);
       this.updateChildren = __bind(this.updateChildren, this);
+      this.contentWidth = __bind(this.contentWidth, this);
       this.contentHeight = __bind(this.contentHeight, this);
       this.move = __bind(this.move, this);
       this.updateOuterFrame = __bind(this.updateOuterFrame, this);
@@ -229,25 +231,26 @@
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
-      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref17, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
       this.name = (_ref1 = options.text) != null ? _ref1 : "Root";
-      this.indent = (_ref2 = model.indent) != null ? _ref2 : 40;
-      this.contentDX = (_ref3 = model.contentDX) != null ? _ref3 : 15;
-      this.circleRadius = (_ref4 = model.circleRadius) != null ? _ref4 : 4;
-      this.animateDuration = (_ref5 = model.animateDuration) != null ? _ref5 : 400;
-      this.isHidden = (_ref6 = options.isHidden) != null ? _ref6 : false;
+      this.autoAdjust = (_ref2 = options.autoAdjust) != null ? _ref2 : true;
+      this.indent = (_ref3 = model.indent) != null ? _ref3 : 40;
+      this.contentDX = (_ref4 = model.contentDX) != null ? _ref4 : 15;
+      this.circleRadius = (_ref5 = model.circleRadius) != null ? _ref5 : 4;
+      this.animateDuration = (_ref6 = model.animateDuration) != null ? _ref6 : 400;
+      this.isHidden = (_ref7 = options.isHidden) != null ? _ref7 : false;
       this.scale = this.isHidden ? "0 1" : "1 1";
-      this.emptyColor = (_ref7 = model.emptyColor) != null ? _ref7 : 'white';
-      this.treeColor = (_ref8 = model.treeColor) != null ? _ref8 : 'slateblue';
-      this.marginTop = (_ref9 = model.marginTop) != null ? _ref9 : 20;
-      this.marginBottom = (_ref10 = model.marginBottom) != null ? _ref10 : 10;
-      this.frameLength = (_ref11 = model.frameLength) != null ? _ref11 : 20;
-      this.lineWidth = (_ref12 = model.lineWidth) != null ? _ref12 : 2;
-      this.outerFramePaddingBottom = (_ref13 = model.outerFramePaddingBottom) != null ? _ref13 : 20;
-      this.x = (_ref14 = options.x) != null ? _ref14 : 5;
-      this.y = (_ref15 = options.y) != null ? _ref15 : 0;
+      this.emptyColor = (_ref8 = model.emptyColor) != null ? _ref8 : 'white';
+      this.treeColor = (_ref9 = model.treeColor) != null ? _ref9 : 'slateblue';
+      this.marginTop = (_ref10 = model.marginTop) != null ? _ref10 : 20;
+      this.marginBottom = (_ref11 = model.marginBottom) != null ? _ref11 : 10;
+      this.frameLength = (_ref12 = model.frameLength) != null ? _ref12 : 20;
+      this.lineWidth = (_ref13 = model.lineWidth) != null ? _ref13 : 2;
+      this.outerFramePaddingBottom = (_ref14 = model.outerFramePaddingBottom) != null ? _ref14 : 20;
+      this.x = (_ref15 = options.x) != null ? _ref15 : 5;
+      this.y = (_ref16 = options.y) != null ? _ref16 : 0;
       if (options.parent != null) {
         this.parent = options.parent;
         this.el = options.el;
@@ -266,9 +269,9 @@
         this.circleX = this.indent;
       }
       if (options.children != null) {
-        _ref16 = options.children;
-        for (_i = 0, _len = _ref16.length; _i < _len; _i++) {
-          child = _ref16[_i];
+        _ref17 = options.children;
+        for (_i = 0, _len = _ref17.length; _i < _len; _i++) {
+          child = _ref17[_i];
           child.isHidden = true;
           this.newChild(child);
         }
@@ -322,7 +325,7 @@
         callback = null;
       }
       this.updateChildren();
-      if (this.parent == null) {
+      if ((this.parent == null) && this.autoAdjust) {
         this.updateOuterFrame();
       }
       this.moveChildren();
@@ -335,7 +338,15 @@
       if (n !== this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom) {
         height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
         SVGTreeNode.animator.animation(this.div, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
-        return SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
+      }
+      if (this.width == null) {
+        this.width = this.div.offsetWidth;
+      }
+      if (this.width !== this.totalWidth()) {
+        SVGTreeNode.animator.animation(this.div, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.frameLength, this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.el, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.frameLength, this.animateDuration, null)();
+        return this.width = this.totalWidth();
       }
     };
 
@@ -358,6 +369,22 @@
           return node.height.baseVal.value;
         }
       }
+    };
+
+    SVGTreeNode.prototype.contentWidth = function() {
+      var candidates, node, _i, _len, _ref;
+      candidates = [];
+      _ref = this.contentGroup.childNodes;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        node = _ref[_i];
+        if (node.offsetWidth != null) {
+          candidates.push(node.offsetWidth);
+        }
+        if (node.width != null) {
+          candidates.push(node.width.baseVal.value);
+        }
+      }
+      return Math.max.apply(Math, candidates);
     };
 
     SVGTreeNode.prototype.updateChildren = function() {
@@ -417,6 +444,17 @@
         n += child.totalHeight();
       }
       return n;
+    };
+
+    SVGTreeNode.prototype.totalWidth = function() {
+      var c, candidates, _i, _len, _ref;
+      candidates = [Math.max(this.contentWidth() + this.contentDX, 2 * this.indent)];
+      _ref = this.children;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        c = _ref[_i];
+        candidates.push(this.indent + c.totalWidth());
+      }
+      return Math.max.apply(Math, candidates);
     };
 
     SVGTreeNode.prototype.getLinePoints = function() {
@@ -588,7 +626,7 @@
 
     SVGTreeNode.prototype.makeContentGroup = function() {
       var transform_spec;
-      this.contentX = 2 * this.contentDX;
+      this.contentX = this.contentDX;
       transform_spec = {
         transform: "translate(" + this.contentX + ", 0)"
       };
