@@ -437,7 +437,7 @@
 
     SVGTreeNode.prototype.totalHeight = function() {
       var child, n, _i, _len, _ref;
-      n = this.marginTop + this.contentHeight() + this.marginBottom;
+      n = Math.max(this.marginTop, this.marginBottom) + this.contentHeight();
       _ref = this.visibleChildren();
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         child = _ref[_i];
