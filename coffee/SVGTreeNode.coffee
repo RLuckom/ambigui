@@ -240,7 +240,7 @@ class SVGTreeNode
   # Returns the total height of the node, including all descendants.
   # @return {Number}
   totalHeight: =>
-    n = @marginTop + @contentHeight() + @marginBottom
+    n = Math.max(@marginTop, @marginBottom) + @contentHeight()
     n += child.totalHeight() for child in @visibleChildren()
     return n
 
