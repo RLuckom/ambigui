@@ -19,7 +19,12 @@ class EditableTree extends SVGTreeNode
 
   # @return {Number} total height including children, and newNode icons
   totalHeight: =>
-    return super() + @starLength + @starRadius
+    if not @isHidden
+      h = super()
+      if @visibleChildren().length == 0
+        h += @starLength
+      return h
+    return 0
 
   # @return {Number} position of the top of the star
   getStarTop: =>
@@ -33,13 +38,6 @@ class EditableTree extends SVGTreeNode
   # Assembles the star, appends to @el. binds createChild
   makeStar: =>
     @starTop ?= @getStarTop()
-    starLinePoints = {
-      x1: @indent, y1:@starTop, x2: @indent, y2: @starTop + @starLength
-    }
-    starLinePoints.fill = "none"
-    starLinePoints.stroke = @treeColor
-    starLinePoints['stroke-width'] = "#{@lineWidth}px"
-    @starLine = @svgElement "line", starLinePoints
     @star = @svgElement('g', {
       transform: "translate(#{@indent}, #{@starTop + @starLength})"
     })
@@ -67,21 +65,12 @@ class EditableTree extends SVGTreeNode
     
   # Moves the starLine and star to the current correct position
   animateStar: (callback=null) =>
-    if not @starLine?
+    if not @star?
       if @isHidden
         @starTop = @getStarTop()
         return
       @makeStar()
     newStarTop = @getStarTop()
-    SVGTreeNode.animator.animation(
-      @starLine, 'y1', "#{@starTop}px", "#{newStarTop}px",
-      @frameLength, @animateDuration, callback
-    )()
-    SVGTreeNode.animator.animation(
-      @starLine, 'y2', "#{@starTop + @starLength}px",
-      "#{newStarTop + @starLength}px",
-      @frameLength, @animateDuration, null
-    )()
     SVGTreeNode.animator.animation(
       @star, "transform", "translate(#{@indent} #{@starTop + @starLength})",
       "translate(#{@indent} #{newStarTop + @starLength})", @frameLength,

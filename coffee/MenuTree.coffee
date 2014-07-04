@@ -13,8 +13,8 @@ class MenuTree extends SVGTreeNode
     @class = options.class
     @id = options.id
     @tag = options.tag
-    @width = options.width ? "200px"
-    @height = options.height ? "20px"
+    @width = options.width ? 200
+    @height = options.height ? 20
     if not @tag?
       if @link?
         @tag = 'a'

@@ -35,11 +35,12 @@ class SVGTreeNode
   # returns data about the tree
   toString: =>
     s = "name: #{@name}\n isHidden: #{@isHidden} x: #{@x} y: #{@y}"
-    s += " contentDX: #{@contentDX} contentOffset: #{@marginBottom()} "
-    s += "contentX: #{@contentX}"
+    s += " contentDX: #{@contentDX} "
+    s += "contentX: #{@contentX} contentHeight: #{@contentHeight()}"
     s += " textY: #{@contentY} linePoints: #{@linePoints} circleX: #{@circleX}"
-    s += " circleY #{@circleY}"
-    s += " scale: #{@scale}"
+    s += " circleY #{@circleY} marginBottom #{@marginBottom}"
+    s += " marginTop: #{@marginTop}"
+    s += " scale: #{@scale} totalHeight: #{@totalHeight()}"
     s += "\n"
     s += child.toString() for child in @children
     ret = ''
@@ -213,7 +214,7 @@ class SVGTreeNode
     for child in @children
       child.y = if not child.isHidden then dY else @y
       child.x = @x + @indent
-      dY += child.totalHeight()
+      dY += if child.isHidden then 0 else child.totalHeight()
 
   # recursively updates the position of all descendent elements
   #
@@ -229,18 +230,18 @@ class SVGTreeNode
   # @return {Number}
   flagpoleLength: =>
     l = 0
-    for child in @children
-      if not child.isHidden
-        if child == @children[@children.length - 1]
-          l += child.marginTop + child.contentHeight() + child.marginBottom
-        else
-          l += child.totalHeight()
+    visible = @visibleChildren()
+    for child in visible
+      if child == visible[visible.length - 1]
+        l += child.marginTop + child.contentHeight() + child.marginBottom
+      else
+        l += child.totalHeight()
     return l
 
   # Returns the total height of the node, including all descendants.
   # @return {Number}
   totalHeight: =>
-    n = Math.max(@marginTop, @marginBottom) + @contentHeight()
+    n = @marginBottom +  @marginTop + @contentHeight()
     n += child.totalHeight() for child in @visibleChildren()
     return n
 
