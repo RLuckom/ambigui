@@ -3,6 +3,14 @@ registerGlobal 'ambigui', module
 #refactoring shim
 class Animator
 
+  # Polyfill requestAnimationFrame
+  constructor: ->
+    for x in ['ms', 'moz', 'o', 'webkit']
+      if not window.requestAnimationFrame?
+        window.requestAnimationFrame = window[x + 'RequestAnimationFrame']
+    if not window.requestAnimationFrame?
+      @animation = @fallbackAnimation
+
   # find numbers in strings.
   #
   valAndFormatArrays: (s) ->
@@ -86,23 +94,53 @@ class Animator
   # @param {String} attr attribute of node to transition
   # @param {Number or Array} fromValues if Array, must be of Numbers
   # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Number} duration time for animation to last
   # @param {Function} callback if given, will be executed after animation
-  animation: (el, attr, from, to, step, duration, callback) ->
+  animation: (el, attr, from, to, duration, callback) ->
+    [fromVals, fromFmt, fromMap] = @valAndFormatArrays(from)
+    [toVals, toFmt, toMap] = @valAndFormatArrays(to)
+    formatter = @makeFormatter(fromFmt, fromMap)
+    transition = @transition el, attr, fromVals, toVals, formatter
+    startTime = null
+    f = (t) ->
+      if not t?
+        window.requestAnimationFrame f
+        return
+      startTime ?= t
+      dT = t - startTime
+      if dT >= duration
+        transition 1
+        callback() if callback?
+      else
+        transition dT / duration
+        window.requestAnimationFrame f
+    return f
+  
+  # Returns a function f that will animate the element from the from state
+  # to the to state over the duration.
+  #
+  # @param {DOMNode} el element to transition
+  # @param {String} attr attribute of node to transition
+  # @param {Number or Array} fromValues if Array, must be of Numbers
+  # @param {Number or Array} toValues if Array, must be of Numbers
+  # @param {Number} duration time for animation to last
+  # @param {Function} callback if given, will be executed after animation
+  fallbackAnimation: (el, attr, from, to, duration, callback) ->
     [fromVals, fromFmt, fromMap] = @valAndFormatArrays(from)
     [toVals, toFmt, toMap] = @valAndFormatArrays(to)
     formatter = @makeFormatter(fromFmt, fromMap)
     transition = @transition el, attr, fromVals, toVals, formatter
     startTime = null
     f = ->
-      startTime ?= new Date().getTime()
-      dT = new Date().getTime() - startTime
+      t = new Date().getTime()
+      startTime ?= t
+      dT = t - startTime
       if dT >= duration
         transition 1
         callback() if callback?
       else
         transition dT / duration
-        window.setTimeout f, step
+        window.setTimeout f, 16
     return f
-  
 
 module.Animator = Animator

@@ -20,7 +20,19 @@
   registerGlobal('ambigui', module);
 
   Animator = (function() {
-    function Animator() {}
+    function Animator() {
+      var x, _i, _len, _ref;
+      _ref = ['ms', 'moz', 'o', 'webkit'];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        x = _ref[_i];
+        if (window.requestAnimationFrame == null) {
+          window.requestAnimationFrame = window[x + 'RequestAnimationFrame'];
+        }
+      }
+      if (window.requestAnimationFrame == null) {
+        this.animation = this.fallbackAnimation;
+      }
+    }
 
     Animator.prototype.valAndFormatArrays = function(s) {
       var chars, format_section, formatting, numIndexToFormattingIndex, num_candidate, num_chars, numbers, _ref, _ref1;
@@ -116,19 +128,23 @@
       };
     };
 
-    Animator.prototype.animation = function(el, attr, from, to, step, duration, callback) {
+    Animator.prototype.animation = function(el, attr, from, to, duration, callback) {
       var f, formatter, fromFmt, fromMap, fromVals, startTime, toFmt, toMap, toVals, transition, _ref, _ref1;
       _ref = this.valAndFormatArrays(from), fromVals = _ref[0], fromFmt = _ref[1], fromMap = _ref[2];
       _ref1 = this.valAndFormatArrays(to), toVals = _ref1[0], toFmt = _ref1[1], toMap = _ref1[2];
       formatter = this.makeFormatter(fromFmt, fromMap);
       transition = this.transition(el, attr, fromVals, toVals, formatter);
       startTime = null;
-      f = function() {
+      f = function(t) {
         var dT;
-        if (startTime == null) {
-          startTime = new Date().getTime();
+        if (t == null) {
+          window.requestAnimationFrame(f);
+          return;
         }
-        dT = new Date().getTime() - startTime;
+        if (startTime == null) {
+          startTime = t;
+        }
+        dT = t - startTime;
         if (dT >= duration) {
           transition(1);
           if (callback != null) {
@@ -136,7 +152,34 @@
           }
         } else {
           transition(dT / duration);
-          return window.setTimeout(f, step);
+          return window.requestAnimationFrame(f);
+        }
+      };
+      return f;
+    };
+
+    Animator.prototype.fallbackAnimation = function(el, attr, from, to, duration, callback) {
+      var f, formatter, fromFmt, fromMap, fromVals, startTime, toFmt, toMap, toVals, transition, _ref, _ref1;
+      _ref = this.valAndFormatArrays(from), fromVals = _ref[0], fromFmt = _ref[1], fromMap = _ref[2];
+      _ref1 = this.valAndFormatArrays(to), toVals = _ref1[0], toFmt = _ref1[1], toMap = _ref1[2];
+      formatter = this.makeFormatter(fromFmt, fromMap);
+      transition = this.transition(el, attr, fromVals, toVals, formatter);
+      startTime = null;
+      f = function() {
+        var dT, t;
+        t = new Date().getTime();
+        if (startTime == null) {
+          startTime = t;
+        }
+        dT = t - startTime;
+        if (dT >= duration) {
+          transition(1);
+          if (callback != null) {
+            return callback();
+          }
+        } else {
+          transition(dT / duration);
+          return window.setTimeout(f, 16);
         }
       };
       return f;
@@ -232,7 +275,7 @@
       this.requestUpdate = __bind(this.requestUpdate, this);
       this.newChild = __bind(this.newChild, this);
       this.toString = __bind(this.toString, this);
-      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref17, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
+      var child, model, _i, _len, _ref, _ref1, _ref10, _ref11, _ref12, _ref13, _ref14, _ref15, _ref16, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       this.children = [];
       model = (_ref = options.parent) != null ? _ref : options;
       this.name = (_ref1 = options.text) != null ? _ref1 : "Root";
@@ -247,11 +290,10 @@
       this.treeColor = (_ref9 = model.treeColor) != null ? _ref9 : 'slateblue';
       this.marginTop = (_ref10 = model.marginTop) != null ? _ref10 : 20;
       this.marginBottom = (_ref11 = model.marginBottom) != null ? _ref11 : 10;
-      this.frameLength = (_ref12 = model.frameLength) != null ? _ref12 : 20;
-      this.lineWidth = (_ref13 = model.lineWidth) != null ? _ref13 : 2;
-      this.outerFramePaddingBottom = (_ref14 = model.outerFramePaddingBottom) != null ? _ref14 : 20;
-      this.x = (_ref15 = options.x) != null ? _ref15 : 5;
-      this.y = (_ref16 = options.y) != null ? _ref16 : 0;
+      this.lineWidth = (_ref12 = model.lineWidth) != null ? _ref12 : 2;
+      this.outerFramePaddingBottom = (_ref13 = model.outerFramePaddingBottom) != null ? _ref13 : 20;
+      this.x = (_ref14 = options.x) != null ? _ref14 : 5;
+      this.y = (_ref15 = options.y) != null ? _ref15 : 0;
       if (options.parent != null) {
         this.parent = options.parent;
         this.el = options.el;
@@ -270,9 +312,9 @@
         this.circleX = this.indent;
       }
       if (options.children != null) {
-        _ref17 = options.children;
-        for (_i = 0, _len = _ref17.length; _i < _len; _i++) {
-          child = _ref17[_i];
+        _ref16 = options.children;
+        for (_i = 0, _len = _ref16.length; _i < _len; _i++) {
+          child = _ref16[_i];
           child.isHidden = true;
           this.newChild(child);
         }
@@ -338,15 +380,15 @@
       n = this.div.offsetHeight;
       if (n !== this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom) {
         height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
-        SVGTreeNode.animator.animation(this.div, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
-        SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.frameLength, this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.div, "height", "" + n + "px", "" + height + "px", this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.animateDuration, null)();
       }
       if (this.width == null) {
         this.width = this.div.offsetWidth;
       }
       if (this.width !== this.totalWidth()) {
-        SVGTreeNode.animator.animation(this.div, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.frameLength, this.animateDuration, null)();
-        SVGTreeNode.animator.animation(this.el, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.frameLength, this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.div, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.el, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.animateDuration, null)();
         return this.width = this.totalWidth();
       }
     };
@@ -486,7 +528,7 @@
         this.makeLine();
       }
       newPoints = this.getLinePoints();
-      SVGTreeNode.animator.animation(this.line, "points", this.linePoints, newPoints, this.frameLength, this.animateDuration, callback)();
+      SVGTreeNode.animator.animation(this.line, "points", this.linePoints, newPoints, this.animateDuration, callback)();
       return this.linePoints = newPoints;
     };
 
@@ -496,7 +538,7 @@
         callback = null;
       }
       newY = this.y + this.marginTop;
-      SVGTreeNode.animator.animation(this.content, "y", "" + this.contentY + "px", "" + newY + "px", this.frameLength, this.animateDuration, callback)();
+      SVGTreeNode.animator.animation(this.content, "y", "" + this.contentY + "px", "" + newY + "px", this.animateDuration, callback)();
       return this.contentY = newY;
     };
 
@@ -530,7 +572,7 @@
         }
       }
       new_cy = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
-      SVGTreeNode.animator.animation(this.circle, "cy", "" + this.circleY + "px", "" + new_cy + "px", this.frameLength, this.animateDuration, callback)();
+      SVGTreeNode.animator.animation(this.circle, "cy", "" + this.circleY + "px", "" + new_cy + "px", this.animateDuration, callback)();
       this.circleY = new_cy;
       color = this.visibleChildren().length === 0 ? this.treeColor : this.emptyColor;
       return this.circle.setAttribute('fill', color);
@@ -619,7 +661,7 @@
         callback = null;
       }
       newScale = this.isHidden ? "0 1" : "1 1";
-      SVGTreeNode.animator.animation(this.el, "transform", "scale(" + this.scale + ")", "scale(" + newScale + ")", this.frameLength, this.animateDuration, callback)();
+      SVGTreeNode.animator.animation(this.el, "transform", "scale(" + this.scale + ")", "scale(" + newScale + ")", this.animateDuration, callback)();
       return this.scale = newScale;
     };
 
@@ -747,7 +789,7 @@
         this.makeStar();
       }
       newStarTop = this.getStarTop();
-      SVGTreeNode.animator.animation(this.star, "transform", "translate(" + this.indent + " " + (this.starTop + this.starLength) + ")", "translate(" + this.indent + " " + (newStarTop + this.starLength) + ")", this.frameLength, this.animateDuration, null)();
+      SVGTreeNode.animator.animation(this.star, "transform", "translate(" + this.indent + " " + (this.starTop + this.starLength) + ")", "translate(" + this.indent + " " + (newStarTop + this.starLength) + ")", this.animateDuration, null)();
       return this.starTop = newStarTop;
     };
 

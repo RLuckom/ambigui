@@ -87,7 +87,6 @@ class SVGTreeNode
     @treeColor = model.treeColor ? 'slateblue'
     @marginTop = model.marginTop ? 20
     @marginBottom = model.marginBottom ? 10
-    @frameLength = model.frameLength ? 20
     @lineWidth = model.lineWidth ? 2
     @outerFramePaddingBottom = model.outerFramePaddingBottom ? 20
     @x = options.x ? 5
@@ -158,21 +157,21 @@ class SVGTreeNode
     if n != @totalHeight() + @contentHeight() + @outerFramePaddingBottom
       height = @totalHeight() + @contentHeight() + @outerFramePaddingBottom
       SVGTreeNode.animator.animation(
-        @div, "height", "#{n}px", "#{height}px", @frameLength,
+        @div, "height", "#{n}px", "#{height}px",
         @animateDuration, null
       )()
       SVGTreeNode.animator.animation(
-        @el, "height", "#{n}px", "#{height}px", @frameLength,
+        @el, "height", "#{n}px", "#{height}px",
         @animateDuration, null
       )()
     @width ?= @div.offsetWidth
     if @width != @totalWidth()
       SVGTreeNode.animator.animation(
-        @div, "width", "#{@width}px", "#{@totalWidth()}px", @frameLength,
+        @div, "width", "#{@width}px", "#{@totalWidth()}px",
         @animateDuration, null
       )()
       SVGTreeNode.animator.animation(
-        @el, "width", "#{@width}px", "#{@totalWidth()}px", @frameLength,
+        @el, "width", "#{@width}px", "#{@totalWidth()}px",
         @animateDuration, null
       )()
       @width = @totalWidth()
@@ -283,7 +282,7 @@ class SVGTreeNode
     newPoints = @getLinePoints()
     SVGTreeNode.animator.animation(
       @line, "points", @linePoints, newPoints,
-      @frameLength, @animateDuration, callback
+       @animateDuration, callback
     )()
     @linePoints = newPoints
 
@@ -294,7 +293,7 @@ class SVGTreeNode
     newY = @y + @marginTop
     SVGTreeNode.animator.animation(
       @content, "y", "#{@contentY}px", "#{newY}px",
-      @frameLength, @animateDuration, callback
+       @animateDuration, callback
     )()
     @contentY = newY
 
@@ -325,7 +324,7 @@ class SVGTreeNode
     new_cy = @y + @marginTop + @contentHeight() + @marginBottom
     SVGTreeNode.animator.animation(
       @circle, "cy", "#{@circleY}px", "#{new_cy}px",
-      @frameLength, @animateDuration, callback
+       @animateDuration, callback
     )()
     @circleY = new_cy
     color = if @visibleChildren().length == 0 then @treeColor else @emptyColor
@@ -382,7 +381,7 @@ class SVGTreeNode
     newScale = if @isHidden then "0 1" else "1 1"
     SVGTreeNode.animator.animation(
       @el, "transform", "scale(#{@scale})", "scale(#{newScale})",
-      @frameLength, @animateDuration, callback
+      @animateDuration, callback
     )()
     @scale = newScale
 
