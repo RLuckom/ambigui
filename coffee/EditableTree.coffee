@@ -73,7 +73,7 @@ class EditableTree extends SVGTreeNode
     newStarTop = @getStarTop()
     SVGTreeNode.animator.animation(
       @star, "transform", "translate(#{@indent} #{@starTop + @starLength})",
-      "translate(#{@indent} #{newStarTop + @starLength})", @frameLength,
+      "translate(#{@indent} #{newStarTop + @starLength})",
       @animateDuration, null
     )()
     @starTop = newStarTop
