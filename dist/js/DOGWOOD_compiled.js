@@ -184,11 +184,12 @@
     SVGTreeNode.prototype.toString = function() {
       var child, line, ret, s, _i, _j, _len, _len1, _ref, _ref1;
       s = "name: " + this.name + "\n isHidden: " + this.isHidden + " x: " + this.x + " y: " + this.y;
-      s += " contentDX: " + this.contentDX + " contentOffset: " + (this.marginBottom()) + " ";
-      s += "contentX: " + this.contentX;
+      s += " contentDX: " + this.contentDX + " ";
+      s += "contentX: " + this.contentX + " contentHeight: " + (this.contentHeight());
       s += " textY: " + this.contentY + " linePoints: " + this.linePoints + " circleX: " + this.circleX;
-      s += " circleY " + this.circleY;
-      s += " scale: " + this.scale;
+      s += " circleY " + this.circleY + " marginBottom " + this.marginBottom;
+      s += " marginTop: " + this.marginTop;
+      s += " scale: " + this.scale + " totalHeight: " + (this.totalHeight());
       s += "\n";
       _ref = this.children;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
@@ -396,7 +397,7 @@
         child = _ref[_i];
         child.y = !child.isHidden ? dY : this.y;
         child.x = this.x + this.indent;
-        _results.push(dY += child.totalHeight());
+        _results.push(dY += child.isHidden ? 0 : child.totalHeight());
       }
       return _results;
     };
@@ -419,17 +420,15 @@
     };
 
     SVGTreeNode.prototype.flagpoleLength = function() {
-      var child, l, _i, _len, _ref;
+      var child, l, visible, _i, _len;
       l = 0;
-      _ref = this.children;
-      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-        child = _ref[_i];
-        if (!child.isHidden) {
-          if (child === this.children[this.children.length - 1]) {
-            l += child.marginTop + child.contentHeight() + child.marginBottom;
-          } else {
-            l += child.totalHeight();
-          }
+      visible = this.visibleChildren();
+      for (_i = 0, _len = visible.length; _i < _len; _i++) {
+        child = visible[_i];
+        if (child === visible[visible.length - 1]) {
+          l += child.marginTop + child.contentHeight() + child.marginBottom;
+        } else {
+          l += child.totalHeight();
         }
       }
       return l;
@@ -437,7 +436,7 @@
 
     SVGTreeNode.prototype.totalHeight = function() {
       var child, n, _i, _len, _ref;
-      n = Math.max(this.marginTop, this.marginBottom) + this.contentHeight();
+      n = this.marginBottom + this.marginTop + this.contentHeight();
       _ref = this.visibleChildren();
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         child = _ref[_i];
@@ -673,7 +672,15 @@
     };
 
     EditableTree.prototype.totalHeight = function() {
-      return EditableTree.__super__.totalHeight.call(this) + this.starLength + this.starRadius;
+      var h;
+      if (!this.isHidden) {
+        h = EditableTree.__super__.totalHeight.call(this);
+        if (this.visibleChildren().length === 0) {
+          h += this.starLength;
+        }
+        return h;
+      }
+      return 0;
     };
 
     EditableTree.prototype.getStarTop = function() {
@@ -687,20 +694,10 @@
     };
 
     EditableTree.prototype.makeStar = function() {
-      var c, cross1, cross2, starLinePoints;
+      var c, cross1, cross2;
       if (this.starTop == null) {
         this.starTop = this.getStarTop();
       }
-      starLinePoints = {
-        x1: this.indent,
-        y1: this.starTop,
-        x2: this.indent,
-        y2: this.starTop + this.starLength
-      };
-      starLinePoints.fill = "none";
-      starLinePoints.stroke = this.treeColor;
-      starLinePoints['stroke-width'] = "" + this.lineWidth + "px";
-      this.starLine = this.svgElement("line", starLinePoints);
       this.star = this.svgElement('g', {
         transform: "translate(" + this.indent + ", " + (this.starTop + this.starLength) + ")"
       });
@@ -742,7 +739,7 @@
       if (callback == null) {
         callback = null;
       }
-      if (this.starLine == null) {
+      if (this.star == null) {
         if (this.isHidden) {
           this.starTop = this.getStarTop();
           return;
@@ -750,8 +747,6 @@
         this.makeStar();
       }
       newStarTop = this.getStarTop();
-      SVGTreeNode.animator.animation(this.starLine, 'y1', "" + this.starTop + "px", "" + newStarTop + "px", this.frameLength, this.animateDuration, callback)();
-      SVGTreeNode.animator.animation(this.starLine, 'y2', "" + (this.starTop + this.starLength) + "px", "" + (newStarTop + this.starLength) + "px", this.frameLength, this.animateDuration, null)();
       SVGTreeNode.animator.animation(this.star, "transform", "translate(" + this.indent + " " + (this.starTop + this.starLength) + ")", "translate(" + this.indent + " " + (newStarTop + this.starLength) + ")", this.frameLength, this.animateDuration, null)();
       return this.starTop = newStarTop;
     };
@@ -944,6 +939,7 @@
     };
 
     TODOListTree.prototype.setTextToDiv = function(evt) {
+      this.name = this.input.value;
       this.contentDiv.innerHTML = this.input.value;
       return this.inputActive = false;
     };
@@ -976,8 +972,8 @@
       this["class"] = options["class"];
       this.id = options.id;
       this.tag = options.tag;
-      this.width = (_ref = options.width) != null ? _ref : "200px";
-      this.height = (_ref1 = options.height) != null ? _ref1 : "20px";
+      this.width = (_ref = options.width) != null ? _ref : 200;
+      this.height = (_ref1 = options.height) != null ? _ref1 : 20;
       if (this.tag == null) {
         if (this.link != null) {
           this.tag = 'a';

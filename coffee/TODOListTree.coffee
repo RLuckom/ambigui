@@ -36,6 +36,7 @@ class TODOListTree extends BasicEditableTree
   # Callback to set the text of an input to the text
   # of the div on focusout.
   setTextToDiv: (evt) =>
+    @name = @input.value
     @contentDiv.innerHTML = @input.value
     @inputActive = false
 
