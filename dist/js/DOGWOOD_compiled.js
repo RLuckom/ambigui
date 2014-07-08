@@ -306,6 +306,9 @@
       this.contentY = this.y + this.marginTop;
       this.makeContentGroup();
       this.makeContent();
+      if (this.parent == null) {
+        this.updateOuterFrame(true);
+      }
       this.makeLine();
       if (this.isHidden && (options.children != null)) {
         this.circleY = this.y + this.marginTop + this.contentHeight() + this.marginBottom;
@@ -375,20 +378,26 @@
       return this.move();
     };
 
-    SVGTreeNode.prototype.updateOuterFrame = function() {
-      var height, n;
+    SVGTreeNode.prototype.updateOuterFrame = function(instant) {
+      var h, n, s1, s2;
+      if (instant == null) {
+        instant = false;
+      }
       n = this.div.offsetHeight;
-      if (n !== this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom) {
-        height = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
-        SVGTreeNode.animator.animation(this.div, "height", "" + n + "px", "" + height + "px", this.animateDuration, null)();
-        SVGTreeNode.animator.animation(this.el, "height", "" + n + "px", "" + height + "px", this.animateDuration, null)();
-      }
-      if (this.width == null) {
-        this.width = this.div.offsetWidth;
-      }
-      if (this.width !== this.totalWidth()) {
-        SVGTreeNode.animator.animation(this.div, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.animateDuration, null)();
-        SVGTreeNode.animator.animation(this.el, "width", "" + this.width + "px", "" + (this.totalWidth()) + "px", this.animateDuration, null)();
+      h = this.totalHeight() + this.contentHeight() + this.outerFramePaddingBottom;
+      if (instant) {
+        this.div.style.height = h + 'px';
+        this.el.style.height = h + 'px';
+        this.div.style.width = this.totalWidth() + 'px';
+        this.el.style.width = this.totalWidth() + 'px';
+      } else {
+        if (this.width == null) {
+          this.width = this.div.offsetWidth;
+        }
+        s1 = "width: " + this.width + "px; height: " + n + "px";
+        s2 = "width: " + (this.totalWidth()) + "px; height: " + h + "px";
+        SVGTreeNode.animator.animation(this.div, "style", s1, s2, this.animateDuration, null)();
+        SVGTreeNode.animator.animation(this.el, "style", s1, s2, this.animateDuration, null)();
         return this.width = this.totalWidth();
       }
     };

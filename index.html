@@ -46,9 +46,17 @@
                 text: 'TODO',
                 contentDX: 10,
               });
+              e = document.getElementById("BasicTreeDiv");
+              x = new ambigui.DOGWOOD.BasicTree({
+                el: e,
+                text: 'foo',
+                children: [{text: "bar"}, {text: "baz", 
+                children: [{text: "qux"}]}]}
+              );
             }
         </script>
      <div id="ExtendableTreeDiv"></div>
+     <div id="BasicTreeDiv"></div>
      </div>
      <footer>
          <p class="meta"><a href="github.com/rluckom/ambigui"><b>ambigui</b></a>
