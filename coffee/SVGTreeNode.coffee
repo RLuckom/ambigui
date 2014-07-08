@@ -102,6 +102,8 @@ class SVGTreeNode
     @contentY = @y + @marginTop
     @makeContentGroup()
     @makeContent()
+    if not @parent?
+      @updateOuterFrame(true)
     @makeLine()
     if @isHidden and options.children?
       @circleY = @y + @marginTop + @contentHeight() + @marginBottom
@@ -152,26 +154,25 @@ class SVGTreeNode
 
   # Updates the height of the frame containing the tree based on how
   # much space the tree needs.
-  updateOuterFrame: =>
+  updateOuterFrame: (instant=false) =>
     n = @div.offsetHeight
-    if n != @totalHeight() + @contentHeight() + @outerFramePaddingBottom
-      height = @totalHeight() + @contentHeight() + @outerFramePaddingBottom
+    h = @totalHeight() + @contentHeight() + @outerFramePaddingBottom
+    if instant
+      @div.style.height = h + 'px'
+      @el.style.height = h + 'px'
+      @div.style.width = @totalWidth() + 'px'
+      @el.style.width = @totalWidth() + 'px'
+      return
+    else
+      @width ?= @div.offsetWidth
+      s1 = "width: #{@width}px; height: #{n}px"
+      s2 = "width: #{@totalWidth()}px; height: #{h}px"
       SVGTreeNode.animator.animation(
-        @div, "height", "#{n}px", "#{height}px",
+        @div, "style", s1, s2,
         @animateDuration, null
       )()
       SVGTreeNode.animator.animation(
-        @el, "height", "#{n}px", "#{height}px",
-        @animateDuration, null
-      )()
-    @width ?= @div.offsetWidth
-    if @width != @totalWidth()
-      SVGTreeNode.animator.animation(
-        @div, "width", "#{@width}px", "#{@totalWidth()}px",
-        @animateDuration, null
-      )()
-      SVGTreeNode.animator.animation(
-        @el, "width", "#{@width}px", "#{@totalWidth()}px",
+        @el, "style", s1, s2,
         @animateDuration, null
       )()
       @width = @totalWidth()
